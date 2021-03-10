@@ -1,4 +1,4 @@
-# WHO WILL WIN?: Predicting match results in professional tennis?
+# WHO WILL WIN?: Predicting match results in professional tennis
 
 Predicting 'who will win?' is the holy grail of sports analytics. One of the main challenges for prediction models in tennis is the sparsity of head-to-heads, that is, many in tennis believe that some players don't match-up well, but many players don't meet frequently enough to estimate match-up effects with great certainty.
 
