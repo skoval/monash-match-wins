@@ -1,0 +1,35 @@
+---
+title: "Predicting match results in professional tennis"
+author:
+- familyname: HE
+  othernames: XITONG
+  address: Monash University
+  email: xhee0013@student.monash.edu
+  correspondingauthor: true
+  qualifications: 29026342
+department: Department of\newline Econometrics &\newline Business Statistics
+organization: ETC5543 Internship Project
+bibliography: references.bib
+biblio-style: authoryear-comp
+linestretch: 1.5
+output:
+  MonashEBSTemplates::report:
+    fig_caption: yes
+    fig_height: 5
+    fig_width: 8
+    includes:
+      in_header: preamble.tex
+    keep_tex: yes
+    number_sections: yes
+    citation_package: biblatex
+    toc: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache=TRUE, messages=FALSE, warning=FALSE)
+
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(here)
+```
