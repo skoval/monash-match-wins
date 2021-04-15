@@ -43,3 +43,56 @@ wta_results<-readRDS(here("data/wta_results.rds"))
 # Abstract
 
 This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation of player skills would be addressed in the models as one of the exploratory variables. The models are trained and evaluated on the two historical tennis matches results of approximately 38,000 tennis matches between 2010 and 2020. 
+
+# Data description {#data}
+
+This section mainly introduces the data, data sources and data description.   
+
+There are two data sets used on this analysis report, and both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures.  
+
+
+## ATP_results
+
+The `atp_results` data source is from [Github skoval](https://github.com/skoval/monash-match-wins). The data contains the ATP tour results in the last decay, which is a worldwide top-tier tennis tour for men organized by the Association of Tennis Professionals, with `r nrow(atp_results)` observations and `r ncol(atp_results)`variables from 2011-01-01 to 2020-01-23.   
+
+The variables information included in the data are shown as the following table, Players, Surface,MatchID and Tier variables were mainly used for this analysis.    
+
+```{r atp-data, warning=FALSE, message=FALSE}
+atp_data <- data.frame(
+  Variable = c("ID1","ID2","ID_T","ID_R","RESULT","DATE","NAME_T","DATE_T","Surface","Player1","Player2","Retired","Walkover","Qualifying","MatchID","Tier"),
+  Description = c("Winner ID", "Loser ID","Terminology ID","The around in tennis match","Matches games results","Match Date","Name of the match","Date of tennis tourments","Match Surface","Match Winner","Match Loser","withdrawal of a player during a match, usually due to injury and illness","victory awarded to a player when their opponent concedes a match before it begins, usually due to injury or illness","preliminary event that offers players whose rankings don’t gain them direct entry in the main draw of a tournament, the opportunity to win a spot in that main draw","Unique ID for each match","collective term referring to the group of matches or rubbers played between two teams in a team tennis even"
+  ))
+
+atp_data %>%
+  kable(caption = "Association of Tennis Professionals") %>%
+  kable_styling(bootstrap_options = 
+                c("striped", "condensed"), 
+                full_width = F, 
+                position = "center")
+```
+
+
+ 
+## WTA data
+
+The `wta_results`data was gathered from [Github skoval](https://github.com/skoval/monash-match-wins) as well, of which is recorded the worldwide professional tennis tour match results for women. This dataset contains `r nrow(wta_results)` observation and `r ncol(wta_results)` variables from 2011-01-01 to 2020-01-23 and the data structure is shown as the below tables: 
+
+```{r wta-data, warning=FALSE, message=FALSE}
+wta_data <- data.frame(
+  Variable = c("ID1","ID2","ID_T","ID_R","RESULT","DATE","NAME_T","DATE_T","Surface","Player1","Player2","Retired","Walkover","Qualifying","MatchID","Tier"),
+  Description = c("Winner ID", "Loser ID","Terminology ID","The around in tennis match","Matches games results","Match Date","Name of the match","Date of tennis tourments","Match Surface","Match Winner","Match Loser","withdrawal of a player during a match, usually due to injury and illness","victory awarded to a player when their opponent concedes a match before it begins, usually due to injury or illness","preliminary event that offers players whose rankings don’t gain them direct entry in the main draw of a tournament, the opportunity to win a spot in that main draw","Unique ID for each match","collective term referring to the group of matches or rubbers played between two teams in a team tennis even"
+  ))
+
+wta_data %>%
+  kable(caption = "Women’s Tennis Association Tour") %>%
+  kable_styling(bootstrap_options = 
+                c("striped", "condensed"), 
+                full_width = F, 
+                position = "center")
+```
+
+
+
+
+
+
