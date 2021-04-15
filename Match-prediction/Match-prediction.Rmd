@@ -33,3 +33,13 @@ library(dplyr)
 library(ggplot2)
 library(here)
 ```
+
+
+```{r read-data}
+atp_results<-readRDS(here("data/atp_results.rds"))
+wta_results<-readRDS(here("data/wta_results.rds"))
+```
+
+# Abstract
+
+This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation of player skills would be addressed in the models as one of the exploratory variables. The models are trained and evaluated on the two historical tennis matches results of approximately 38,000 tennis matches between 2010 and 2020. 
