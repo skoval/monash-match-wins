@@ -209,8 +209,83 @@ match_count<-left_join(atp_h2h_match,atp_h2h_count,by="h2hid")%>%
          prob_p2_win=round(p2_count/total_count,3))
 ```
 
+# Model analysis
 
 
+## Pairwise Comparison Models
+Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous method for establishing pairwise comparison is Bradley Terry Model[@bradley1952rank], applying in the contest between two players.
+
+Let $$y_{ij,t}$$ be the outcome of a tennis match that is played between player i and player j at time t. We assume that we have information about K different players over a time period of length n, i.e. i, j =1.... ,K and t =1..., n. The outcome $${y_{ij,t} =1}$$ if player i wins the match at time t whereas the outcome $${y_{ij,t} =0}$$  if player j wins the match at time t. Therefore, the outcomes about $$y_{ij,t}$$ are binary response value.
+
+The conditional probability that yij,t =1 is given by 
+$$Pij,t=P(y_{ij,t}=1|\delta_{ij,t})=\frac{exp(\delta_{ij,t})}{1+exp(\delta_{ij,t})}$$ , $$\delta_{ij,t}=\lambda_{i,j}-\lambda_{j,t}$$
+where$$\lambda_{i,t}$$ represents the skill level of player i at time t and $$\lambda_{j,t}$$ represents the skill level
+of player j at time t. The conditional probability of $${y_{ij,t} =0}$$ is instead equal to$$1-P_{ij,t}$$.
+
+On the other hand, this model can be alternatively expressed in the following logit-linear way, which can be reduce the model to logistics regression on pairs of individuals:
+$$logit[P(i beats j)]=logit(P(i>j))=log(\frac{P(i>j)}{1-P(i>j)})=\lambda_{i}-\lambda_{j}$$
+where $$\lambda_{i}$$ =$$log\alpha_{i}$$ for all i and it can be . Based on the i.i.d(independent identifying distributed) assumption for all contests[@klaassen2001points],the parameters $$\lambda_{i}$$ can be estimated by maximum likelihood using `BradleyTerry2` package[@bradley] for generalized linear models. The `BradleyTerry2` package provides a more flexible user interface to allow a wider range of models to be fitted in the data and allows the inclusion of simple random effects, where the $$ \lambda_{i}$$ can be related to explanatory variable via a linear predictor of the form:
+$$\lambda_{i}=\sum_{r=1}^{p}{\beta_{r}x_{ir}+U_{i}}$$
+
+The inclusion of the prediction error $$U_i$$ allows for variability between players with equal covariate values and induces correlation between comparisons with a common player. 
+
+```{r convert-factor-same-levels}
+# tidy up new matches data and convert the two factors for players into same level in terms of building the model
+match_count%>%
+  select(Winner,Loser,p1_count,p2_count)%>%
+  rename(player1=Winner,
+         player2=Loser)->match
+
+match$player1 <- factor(match$player1, levels=union(match$player1,match$player2))
+match$player2 <- factor(match$player2, levels=union(match$player1, match$player2))
+```
 
 
+```{r simple-BT-model}
+#the coefficients are maximum likelihood estimates of lambda n with lambda1( the log-ability for Tomislav Brkic) set to zero as identifying convention
 
+#~player specifies the model for player ability, in this case it stands for ‘tennis capability’ 
+model1<-BTm(cbind(win_count,lose_count),player1,player2,~player,id="player",data = match)
+
+#summary(model1)
+```
+
+
+```{r p-value}
+ll.null<-model1$null.deviance/-2
+ll.proposed<-model1$deviance/-2
+(ll.null-ll.proposed)/ll.null
+1-pchisq(2*(ll.proposed-ll.null),df=(length(model1$coefficients)-1))
+#The p-value is extremely small, so we can safely reject the null hypothesis that there is no head to head effect advantage.
+
+#Since the dispersion parameter is 1, where is the variance derived from the mean, so the model is suitable as it did not underestimated
+
+```
+
+
+```{r ceof-BT-model}
+#coefficient for simple BT model
+Model1_Results <- data.frame(coef(model1))
+Model1_Results <- data.frame("Players" = rownames(Model1_Results), "Estimate" = Model1_Results$coef.model1.)
+Model1_Results$Players <- substring(as.character(Model1_Results$Players), 7)
+Model1_Results$Estimate <- as.numeric(Model1_Results$Estimate)
+```
+
+
+```{r expected-win-prob}
+player1<-match$player1
+player2<-match$player2
+#Calculate odds of Team1 beating Team2 is (Team1/Team2)/(Team1/Team2 + 1)
+match_count$player1_Odds <- as.numeric(unlist(Model1_Results[match(player1, Model1_Results[, 1]),][2]))
+#data<-cbind(player1,player1_Odds)
+#data[is.na(data)]=0
+match_count$player2_Odds <- as.numeric(unlist(Model1_Results[match(player2, Model1_Results[, 1]),][2]))
+#data2<-cbind(player2,player2_Odds)
+#data2[is.na(data2)]=0
+match_count <- match_count%>%
+  mutate(player1_Beat_player2_Odds=as.numeric(unlist((player1_Odds/player2_Odds)/(player1_Odds/player2_Odds + 1))),
+         exp_p1_win=as.numeric(unlist(exp(player1_Odds-player2_Odds)/(1+exp(player1_Odds-player2_Odds)))),
+         diff=prob_p1_win-exp_p1_win)
+
+
+```
