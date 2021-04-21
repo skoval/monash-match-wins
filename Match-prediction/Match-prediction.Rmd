@@ -151,6 +151,63 @@ out
 ```
 
 
+## Calculating the head to head effect on win odds for each matches
+
+(summarize the total matches of each pair players, and calculating the winners odd who has won most of matches between two players)
+
+
+```{r long-format-matches}
+# tidy up the data(rename and select variables)
+atp_results%>%
+  filter(Retired!="TRUE",Walkover!="TRUE")%>%
+  rename(Winner_ID=ID1,Loser_ID=ID2,Winner=Player1,Loser=Player2)%>%
+  select(Winner_ID,Loser_ID,Winner,Loser,Surface,Tier)->atp_matches
+atp_matches$h2hid<-paste0(atp_matches$Winner_ID, 
+                      ':', atp_matches$Loser_ID )
+atp_matches$matches<-paste0(atp_matches$Winner, 
+                      ':', atp_matches$Loser)
+
+# Make long format by stacking winners and losers
+atp_long <- rbind(
+	atp_results %>% filter(Retired!="TRUE",Walkover!="TRUE")%>% dplyr::select(playerid = ID1, opponentid = ID2, ID_T, ID_R, DATE, Surface, player = Player1, MatchID, Tier) %>% dplyr::mutate(matchwin = TRUE),
+	atp_results %>% filter(Retired!="TRUE",Walkover!="TRUE")%>%
+	  dplyr::select(playerid = ID2, opponentid = ID1, ID_T, ID_R, DATE, Surface, player = Player2, MatchID, Tier) %>% dplyr::mutate(matchwin = FALSE)
+)
+
+head_to_head <- function(id1, id2){
+	# assign h2h idea 
+	ifelse(id1 > id2, paste(id1, id2, sep = ":"), paste(id2, id1, sep = ":"))
+}
+
+atp_long <- atp_long %>%
+	dplyr::mutate(
+		h2hid = head_to_head(playerid, opponentid)
+	)
+```
+
+
+```{r calculating the prob}
+atp_h2h_match<-atp_matches%>%
+  group_by(h2hid,Winner,Loser)%>%
+  tally()%>%
+  ungroup(h2hid)
+
+#use the atp_long data set to calculate the total number of each pair players where they met
+atp_h2h_count<-atp_long%>%
+  group_by(h2hid)%>%
+  tally()%>%
+  mutate(total_count=n/2)%>%
+  select(-n)%>%
+  ungroup()
+
+#calculate the win probability and lose probability for each pair players in terms of total number of the matches
+match_count<-left_join(atp_h2h_match,atp_h2h_count,by="h2hid")%>%
+  drop_na()%>%#drop na since some of data are included in the total matches of each pair palyers but only different in winning players
+  rename(p1_count=n)%>%
+  mutate(p2_count=round(total_count-p1_count,3),
+         prob_p1_win=round(p1_count/total_count,3),
+         prob_p2_win=round(p2_count/total_count,3))
+```
 
 
 
