@@ -92,6 +92,67 @@ wta_data %>%
 ```
 
 
+# Head to Head effect Analysis
+
+## Evaluating the head to head effect in each tier
+
+(explore the percentage of occurring head to head matches in different three tiers )
+
+```{r tier_summary,fig.cap="Matches of head to head effect on each tier"}
+
+#calculate the percentage of h2h matches in each tier for atp results
+
+atp_results%>%
+  group_by(Player1,Player2,Tier)%>%
+  count()%>%
+  group_by(Tier)%>%
+  summarise(n=sum(n))%>%
+  ungroup->atp_tier
+atp_tier
+
+
+atp_tier_summary<-atp_tier%>%
+  mutate(total=sum(n),
+         `prop`=n/total,
+         per=percent(prop))
+
+out = as.htmlwidget(formattable(atp_tier_summary,
+            list(`per` = color_bar("#FA614B"))))
+out$dependencies = c(out$dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
+out
+  
+```
+
+## Evaluating the H2H effect in each surface
+
+(explore the percentage of occurring head to head matches in different three tiers )
+
+```{r surface_summary,fig.cap="Matches of head to head effect on three types of surface"}
+
+#calculate the percentage of h2h matches in each surface for atp results
+
+atp_results%>%
+  group_by(Player1,Player2,Surface)%>%
+  count()%>%
+  group_by(Surface)%>%
+  summarise(n=sum(n))%>%
+  ungroup->atp_surface
+
+
+atp_surface_summary<-atp_surface%>%
+  mutate(total=sum(n),
+         `prop`=n/total,
+         per=percent(prop))
+
+out = as.htmlwidget(formattable(atp_surface_summary,
+            list(`per` = color_bar("#FA614B"))))
+out$dependencies = c(out$dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
+out
+```
+
+
+
+
 
 
 
