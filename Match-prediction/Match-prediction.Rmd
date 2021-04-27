@@ -289,3 +289,32 @@ match_count <- match_count%>%
 
 
 ```
+
+## Bayesian Paired Comparison models in Stan
+
+**Simple Bradley Terry model: **
+
+The `bpcs` package utilizes normal priors for the $$\lambda$$ parameters and models the outcome variable $$y_{i,j}$$ of a single contest between players i and j with a Bernoulli distribution, based on the probability of winning for $$\mathrm{P}(\left[ i \mbox{ beats } j \right]$$.
+
+The simple Bayesian Bradley Terry Model is:
+
+$$\mathrm{P}(\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})}=\lambda_{i}-\lambda_{j}$$
+
+where $$y_{ij}\sim Bernoulli(p[i beats j])$$; $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$
+
+The parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
+
+**Davidson Model: **
+
+Ties refer to the case where a subject does not express a preference for a player in a contest. Therefore, **Davidson model** would be introduced to handle ties in the contest between two players, which adds an additional parameter$$\upsilon$$ and computes two probabilities: the probability of i beating j given that it was not a tie $$ P[i beats j|not tie] $$and the probability of the result being a tie $$P[i ties j]$$. A Bayesian formulation of the model is represented below:
+
+$$\mathrm{P}(\left[ i \mbox{ beats } j \right]
+|  \mbox{ not tie })=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})+exp(\upsilon+\frac{\lambda_{i}+\lambda_{j}}{2})}$$;
+$$\mathrm{Pr}\left[ i \mbox{ beats } j \right]
+=\frac{exp(\upsilon+\frac{\lambda_{i}+\lambda_{j}}{2})}{exp(\lambda_{i})+exp(\lambda_{j})+exp(\upsilon+\frac{\lambda_{i}+\lambda_{j}}{2})}$$;
+$$y_{ij}\sim Bernoulli(\mathrm{P}\left[ i \mbox{ beats } j \right]| \mbox{ not tie })$$;
+$$tie_{i,j} \sim Bernoulli(\mathrm{P}\left[ i \mbox{ ties } j \right])$$;
+$$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
+$$\upsilon \sim N(0,\sigma_{\lambda}^2),[Prior]$$
+
+where the choice of prior in $$\upsilon$$ parameter refers to the prior belief on how ties are affected by the relative difference in players’ abilities.
