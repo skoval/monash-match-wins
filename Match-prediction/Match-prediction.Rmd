@@ -318,3 +318,61 @@ $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
 $$\upsilon \sim N(0,\sigma_{\lambda}^2),[Prior]$$
 
 where the choice of prior in $$\upsilon$$ parameter refers to the prior belief on how ties are affected by the relative difference in players’ abilities.
+
+```{r construct-bpc_data}
+atp_surface<-atp_matches%>%
+  group_by(h2hid,Winner,Loser,Surface)%>%
+  tally()%>%
+  ungroup()%>%
+  pivot_wider(names_from = Surface,
+              values_from=n,
+              values_fill=0)
+atp_long%>%
+  group_by(h2hid,Surface)%>%
+  tally()%>%
+  mutate(total_count=n/2)%>%
+  select(-n)%>%
+  ungroup()%>%
+   pivot_wider(names_from = Surface,
+              values_from=total_count,
+              values_fill=0)->h2h_surface_atp
+
+atp_surface%>%
+  rename(p1_clay=Clay,
+         p1_grass=Grass,
+         p1_hard=Hard)%>%
+  left_join(h2h_surface_atp,by="h2hid")%>%
+  mutate(p2_clay=Clay-p1_clay,
+         p2_grass=Grass-p1_grass,
+         p2_hard=Hard-p1_hard,
+         p1_clay=as.numeric(p1_clay),
+         p1_grass=as.numeric(p1_grass),
+         p1_hard=as.numeric(p1_hard))%>%
+  drop_na()%>%
+  select(-Clay,-Grass,-Hard)->surface
+
+surface%>%
+  rename(player1=Winner,player2=Loser)%>%
+  select(player1,player2,p1_clay,p2_clay)%>%
+  mutate(Type=paste("Clay"))%>%
+  rename(p1_count=p1_clay,
+         p2_count=p2_clay)->clay
+
+surface%>%
+  rename(player1=Winner,player2=Loser)%>%
+  select(player1,player2,p1_grass,p2_grass)%>%
+  mutate(Type=paste("Grass"))%>%
+  rename(p1_count=p1_grass,
+         p2_count=p2_grass)->grass
+
+surface%>%
+  rename(player1=Winner,player2=Loser)%>%
+  select(player1,player2,p1_hard,p2_hard)%>%
+  mutate(Type=paste("Hard"))%>%
+  rename(p1_count=p1_hard,
+         p2_count=p2_hard)->hard
+
+clay%>%
+  rbind(hard)%>%
+  rbind(grass)->bpcs_data
+```
