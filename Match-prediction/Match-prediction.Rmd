@@ -407,3 +407,40 @@ mod2 <- bpc(data = bpcs_sample,
             iter = 3000)
 ```
 
+
+**Mixed effect model in Stain (Surface random effect ): **
+
+Böckenholt (2001) decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
+$$\mathrm{Pr}\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i,s})}{exp(\lambda_{i,s})+exp(\lambda_{j,s})}$$;
+$$\lambda_{i,s}=\lambda_{i}+U_{i,s}$$;
+
+$$y_{ij}\sim Bernoulli(\mathrm{P}\left[ i \mbox{ beats } j \right])$$;
+$$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
+$$ U_{i,s} \sim N(0,U_{std}^2),[Prior]$$;
+$$ U_{std} \sim N(0,\sigma_{U}^2),[Prior]$$
+
+In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field.
+
+```{r mixed-effect}
+mod3 <- bpc(data = bpcs_sample,
+          player0 = 'player1',
+          player1 = 'player2',
+         player0_score = "p1_count",
+         player1_score = "p2_count",
+          model_type = 'bt-U',
+         cluster = 'Type',
+         solve_ties = 'random', 
+          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
+            iter = 3000)
+mod4 <- bpc(data = bpcs_sample,
+          player0 = 'player1',
+          player1 = 'player2',
+         player0_score = "p1_count",
+         player1_score = "p2_count",
+          model_type = 'davidson-U',
+         cluster = 'Type',
+          solve_ties = 'none', #there are no ties
+          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
+            iter = 3000)
+```
+
