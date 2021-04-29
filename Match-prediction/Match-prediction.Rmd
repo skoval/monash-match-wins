@@ -375,4 +375,35 @@ surface%>%
 clay%>%
   rbind(hard)%>%
   rbind(grass)->bpcs_data
+bpcs_data%>%
+   arrange(desc(p1_count))%>%
+  head(1000)%>%
+  na.omit()%>%
+  mutate(player1=as.character(player1),
+         player2=as.character(player2))->bpcs_sample
 ```
+
+
+```{r bpc-BT-model}
+library(bpcs)
+library(cmdstanr)
+mod1 <- bpc(data = bpcs_sample,
+          player0 = 'player1',
+          player1 = 'player2',
+         player0_score = "p1_count",
+         player1_score = "p2_count",
+          model_type = 'bt',
+         solve_ties = 'random',
+           priors = list(prior_lambda_std = 2.0),
+            iter = 3000)
+mod2 <- bpc(data = bpcs_sample,
+          player0 = 'player1',
+          player1 = 'player2',
+         player0_score = "p1_count",
+         player1_score = "p2_count",
+          model_type = 'davidson',
+          solve_ties = 'none', #there are no ties
+          priors = list(prior_lambda_std = 2.0),
+            iter = 3000)
+```
+
