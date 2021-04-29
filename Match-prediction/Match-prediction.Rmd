@@ -444,3 +444,18 @@ mod4 <- bpc(data = bpcs_sample,
             iter = 3000)
 ```
 
+
+```{r waic-value}
+library(rstan)
+
+
+m1_waic <-get_waic(mod1)
+m2_waic <-get_waic(mod2)
+m3_waic <-get_waic(mod3)
+m4_waic<-get_waic(mod4)
+m1_waic
+m2_waic
+m3_waic
+m4_waic
+loo::loo_compare(m1_waic,m2_waic,m3_waic, m4_waic)
+```
