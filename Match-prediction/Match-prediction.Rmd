@@ -36,8 +36,10 @@ library(here)
 
 
 ```{r read-data}
-atp_results<-readRDS(here("data/atp_results.rds"))
-wta_results<-readRDS(here("data/wta_results.rds"))
+atp_results<-readRDS(here("data/atp_results.rds"))%>%
+    filter(Retired!="TRUE",Walkover!="TRUE")
+wta_results<-readRDS(here("data/wta_results.rds"))%>%
+    filter(Retired!="TRUE",Walkover!="TRUE")
 ```
 
 # Abstract
@@ -159,13 +161,10 @@ out
 ```{r long-format-matches}
 # tidy up the data(rename and select variables)
 atp_results%>%
-  filter(Retired!="TRUE",Walkover!="TRUE")%>%
-  rename(Winner_ID=ID1,Loser_ID=ID2,Winner=Player1,Loser=Player2)%>%
-  select(Winner_ID,Loser_ID,Winner,Loser,Surface,Tier)->atp_matches
-atp_matches$h2hid<-paste0(atp_matches$Winner_ID, 
-                      ':', atp_matches$Loser_ID )
-atp_matches$matches<-paste0(atp_matches$Winner, 
-                      ':', atp_matches$Loser)
+  select(ID1,ID2,Player1,Player2,Surface,Tier)%>%
+  mutate(h2hid=paste0(ID1, ':', ID2),
+         matches=paste0(Player1, ':', Player2))->atp_matches
+
 
 # Make long format by stacking winners and losers
 atp_long <- rbind(
@@ -188,7 +187,7 @@ atp_long <- atp_long %>%
 
 ```{r calculating the prob}
 atp_h2h_match<-atp_matches%>%
-  group_by(h2hid,Winner,Loser)%>%
+  group_by(h2hid,Player1,Player2)%>%
   tally()%>%
   ungroup(h2hid)
 
@@ -231,13 +230,12 @@ The inclusion of the prediction error $$U_i$$ allows for variability between pla
 
 ```{r convert-factor-same-levels}
 # tidy up new matches data and convert the two factors for players into same level in terms of building the model
+# remove the ties from two players
 match_count%>%
-  select(Winner,Loser,p1_count,p2_count)%>%
-  rename(player1=Winner,
-         player2=Loser)->match
-
-match$player1 <- factor(match$player1, levels=union(match$player1,match$player2))
-match$player2 <- factor(match$player2, levels=union(match$player1, match$player2))
+  select(Player1,Player2,p1_count,p2_count)%>%
+  filter(p1_count!=p2_count)%>%
+  mutate(Player1 = factor(Player1, levels = unique(c(Player1, Player2))),
+         Player2= factor(Player2, levels = levels(Player1)))->match
 ```
 
 
@@ -245,7 +243,7 @@ match$player2 <- factor(match$player2, levels=union(match$player1, match$player2
 #the coefficients are maximum likelihood estimates of lambda n with lambda1( the log-ability for Tomislav Brkic) set to zero as identifying convention
 
 #~player specifies the model for player ability, in this case it stands for ‘tennis capability’ 
-model1<-BTm(cbind(win_count,lose_count),player1,player2,~player,id="player",data = match)
+model1<-BTm(cbind(p1_count,p2_count),Player1,Player2,~Player,id="Player",data = match)
 
 #summary(model1)
 ```
@@ -260,32 +258,46 @@ ll.proposed<-model1$deviance/-2
 
 #Since the dispersion parameter is 1, where is the variance derived from the mean, so the model is suitable as it did not underestimated
 
+
+# construct the coefficient data frame and read the coeffienct in convenient way
+ability<-BTabilities(model1)
+ability<-data.frame(Player=rownames(ability),
+                    Ability=ability[,1],
+                    SE=ability[,2])
+ability$Player<-factor(ability$Player,
+                       levels = ability$Player[order(ability$Ability)],
+                       ordered = T)
+
 ```
 
 
 ```{r ceof-BT-model}
-#coefficient for simple BT model
-Model1_Results <- data.frame(coef(model1))
-Model1_Results <- data.frame("Players" = rownames(Model1_Results), "Estimate" = Model1_Results$coef.model1.)
-Model1_Results$Players <- substring(as.character(Model1_Results$Players), 7)
-Model1_Results$Estimate <- as.numeric(Model1_Results$Estimate)
-```
+#coefficient for simple BT model without ties
+result<-read.csv(here("data/ability_no_ties.csv"))
 
 
-```{r expected-win-prob}
-player1<-match$player1
-player2<-match$player2
+player1<-match$Player1
+player2<-match$Player2
+match_count<-match_count%>%
+  filter(p1_count!=p2_count)
 #Calculate odds of Team1 beating Team2 is (Team1/Team2)/(Team1/Team2 + 1)
-match_count$player1_Odds <- as.numeric(unlist(Model1_Results[match(player1, Model1_Results[, 1]),][2]))
-#data<-cbind(player1,player1_Odds)
-#data[is.na(data)]=0
-match_count$player2_Odds <- as.numeric(unlist(Model1_Results[match(player2, Model1_Results[, 1]),][2]))
-#data2<-cbind(player2,player2_Odds)
-#data2[is.na(data2)]=0
+match_count$player1_Odds <- as.numeric(unlist(result[match(player1, result[, 1]),][2]))
+
+match_count$player2_Odds <- as.numeric(unlist(result[match(player2, result[, 1]),][2]))
+
 match_count <- match_count%>%
-  mutate(player1_Beat_player2_Odds=as.numeric(unlist((player1_Odds/player2_Odds)/(player1_Odds/player2_Odds + 1))),
-         exp_p1_win=as.numeric(unlist(exp(player1_Odds-player2_Odds)/(1+exp(player1_Odds-player2_Odds)))),
-         diff=prob_p1_win-exp_p1_win)
+  mutate(exp_p1_win=as.numeric(unlist(exp(player1_Odds-player2_Odds)/(1+exp(player1_Odds-player2_Odds)))),
+         diff=prob_p1_win-exp_p1_win)%>%
+  select(h2hid,Player1,Player2,exp_p1_win,prob_p1_win)%>%
+  mutate(outcome=as.numeric(prob_p1_win<0.5),
+         exp_p1_win=replace(exp_p1_win,exp_p1_win==1,0.99))
+
+library(givitiR)
+cb1 <- givitiCalibrationBelt(o = match_count$outcome, e = match_count$exp_p1_win,
+                             devel = "external")
+plot(cb1, main = "Bradley Terry calibration",
+     xlab = "Bradley Terry predicted probability",
+     ylab = "Observed mortality")
 
 
 ```
