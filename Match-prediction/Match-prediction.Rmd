@@ -42,9 +42,14 @@ wta_results<-readRDS(here("data/wta_results.rds"))%>%
     filter(Retired!="TRUE",Walkover!="TRUE")
 ```
 
-# Abstract
+# Introduction
 
-This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation of player skills would be addressed in the models as one of the exploratory variables. The models are trained and evaluated on the two historical tennis matches results of approximately 38,000 tennis matches between 2010 and 2020. 
+In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis is one of the appealing sports chosen in this project. The purpose of this project is to study the performance of different prediction methods in men's and women's professional tennis matches. The measure is used to build up the prediction model based on historical data in the last decay. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation between players such as head-to-head effect would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 38,000 tennis matches between 2010 and 2020. 
+
+# The motivation of this project
+
+The main objective of the project is to develop and evaluate different approaches for predicting the tennis match results. In addition, by considering the head to head effects which might exist in the matches, this project would investigate strategies for estimating and incorporating these matchup effects into a prediction model.
+
 
 # Data description {#data}
 
