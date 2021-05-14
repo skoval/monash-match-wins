@@ -153,31 +153,50 @@ The figure \@ref(fig:male-win-most-of-matches) and the figure \@ref(fig:female-w
 
 ## Evaluating the head to head effect in each tier
 
-(explore the percentage of occurring head to head matches in different three tiers )
+However, tennis sports is like a pyramid, with the size of the competitive pool getting lower when the players go upward the tournament tier as the stronger players will stay until the end. In this case,if there are many cases of player-opponent matchups with a single match, this will affect the accuracy of estimations of the head-to-head effects and bring all the effects closer to zero that would be the case with a less sparse sample. Therefore, based on the table \@ref(tab:atp_tier_summary),having played more than 3 matches against an opponent is an unusually long history compared to the normal matches. In the `atp` data, there are four tier groups and ATP WorldTour 250 has most of matches records which is the lowest tier of annual men's tennis tournaments on the main ATP Tour. The player-opponent with more than 2 matches only  Matches with more than two matches against the same opponent accounted for 7.81 percent of the ATP WorldTour 250, and only 3.76 percent with more than three matches. It is obviously that the number of matches against the same opponent will be less and less in each tier especially in ATP WorldTour 250. A similar situation occurs in `wta` data. The table \@ref(tab:wta_tier_summary) shows that less than 10% chance of playing more than 2 or 3 games against the same opponent in all tiers. It is worth noting that WTA Tour will rename its tournaments in 2021 which will simplify the understanding of the structure of the tour. Therefore, the premier category become WTA 1000s and 500s and international category become WTA 250s, much like the ATP tour tournaments. In addition, 125K serier is like the challenger level in ATP which is the entry-level for tour tournaments. But from the table data, the number of matches occurred in the 125K Series is the lowest, suggesting that players at the 125K Series will not often build up substantial head-to-heads against other players on the tour. According to the data from these two tables, it indicates that head-to-head matches are infrequent and that the number of matches in each tier that involve player-opponent matchup effects in the long history is very small.
 
-```{r tier_summary,fig.cap="Matches of head to head effect on each tier"}
+```{r atp_tier_summary,fig.cap="Matches of head to head effect on each tier in ATP"}
 
 #calculate the percentage of h2h matches in each tier for atp results
 
-atp_results%>%
-  group_by(Player1,Player2,Tier)%>%
-  count()%>%
-  group_by(Tier)%>%
-  summarise(n=sum(n))%>%
-  ungroup->atp_tier
-atp_tier
+# atp_results%>%
+#   group_by(Player1,Player2,Tier)%>%
+#   count()%>%
+#   group_by(Tier)%>%
+#   summarise(n=sum(n))%>%
+#   ungroup->atp_tier
+# atp_tier
+# 
+# 
+# atp_tier_summary<-atp_tier%>%
+#   mutate(total=sum(n),
+#          `prop`=n/total,
+#          per=percent(prop))
+atp_long%>%group_by(h2hid,Tier)%>%tally()%>%mutate(count=n/2)%>%select(-n)%>%ungroup()%>%filter(count>=3)%>%group_by(Tier)%>%summarise(`matches>=3`=sum(count))%>%
+  left_join(atp_long%>%group_by(h2hid,Tier)%>%tally()%>%mutate(count=n/2)%>%select(-n)%>%ungroup()%>%filter(count==2)%>%group_by(Tier)%>%summarise(`matches=2`=sum(count)))%>%
+  left_join(atp_long%>%group_by(h2hid,Tier)%>%tally()%>%mutate(count=n/2)%>%select(-n)%>%ungroup()%>% group_by(Tier)%>%summarise(total=sum(count)))%>%
+  mutate(`per(match>=3)`=percent(`matches>=3`/sum(total)),
+         `per(match=2)`=percent(`matches=2`/sum(total)))->atp_tier
 
-
-atp_tier_summary<-atp_tier%>%
-  mutate(total=sum(n),
-         `prop`=n/total,
-         per=percent(prop))
-
-out = as.htmlwidget(formattable(atp_tier_summary,
-            list(`per` = color_bar("#FA614B"))))
+out = as.htmlwidget(formattable(atp_tier,
+            list(`per(match>=3)` = color_bar("#BDD9EC"),
+                `per(match=2)` = color_bar("#FA614B") )))
 out$dependencies = c(out$dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
-out
-  
+out 
+```
+
+```{r atp_tier_summary,fig.cap="Matches of head to head effect on each tier in WTA"}
+wta_long%>%group_by(h2hid,Tier)%>%tally()%>%mutate(count=n/2)%>%select(-n)%>%ungroup()%>%filter(count>=3)%>%group_by(Tier)%>%summarise(`matches>=3`=sum(count))%>%
+  left_join(wta_long%>%group_by(h2hid,Tier)%>%tally()%>%mutate(count=n/2)%>%select(-n)%>%ungroup()%>%filter(count==2)%>%group_by(Tier)%>%summarise(`matches=2`=sum(count)))%>%
+  left_join(wta_long%>%group_by(h2hid,Tier)%>%tally()%>%mutate(count=n/2)%>%select(-n)%>%ungroup()%>% group_by(Tier)%>%summarise(total=sum(count)))%>%
+  mutate(`per(match>=3)`=percent(`matches>=3`/sum(total)),
+         `per(match=2)`=percent(`matches=2`/sum(total)))->wta_tier
+
+out = as.htmlwidget(formattable(wta_tier,
+            list(`per(match>=3)` = color_bar("#BDD9EC"),
+                `per(match=2)` = color_bar("#FA614B") )))
+out$dependencies = c(out$dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
+out 
 ```
 
 ## Evaluating the H2H effect in each surface
