@@ -26,12 +26,18 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache=TRUE, messages=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, cache=TRUE, message=FALSE, warning=FALSE)
 
 library(tidyverse)
 library(dplyr)
 library(ggplot2)
 library(here)
+library(kableExtra)
+library(wordcloud2)
+library(ggrepel)
+library(RColorBrewer)
+library(scales)
+library(formattable) 
 ```
 
 
@@ -40,6 +46,19 @@ atp_results<-readRDS(here("data/atp_results.rds"))%>%
     filter(Retired!="TRUE",Walkover!="TRUE")
 wta_results<-readRDS(here("data/wta_results.rds"))%>%
     filter(Retired!="TRUE",Walkover!="TRUE")
+atp_results%>%
+  select(ID1,ID2,Player1,Player2,Surface,Tier)->atp_matches
+atp_matches$h2hid<-paste0(atp_matches$ID1, 
+                      ':', atp_matches$ID2 )
+atp_matches$matches<-paste0(atp_matches$Player1, 
+                      ':', atp_matches$Player2)
+
+wta_results%>%
+  select(ID1,ID2,Player1,Player2,Surface,Tier)->wta_matches
+wta_matches$h2hid<-paste0(wta_matches$ID1, 
+                      ':', wta_matches$ID2 )
+wta_matches$matches<-paste0(wta_matches$Player1, 
+                      ':', wta_matches$Player2)
 ```
 
 # Introduction
@@ -98,8 +117,39 @@ wta_data %>%
                 position = "center")
 ```
 
-
 # Head to Head effect Analysis
+
+Head to head means the direct competition between two players. In this project, head-to-head effect indicates that the matchup effect of two specific players meeting in the matches. This is not only to consider the player's ability in tennis skills such as the talented-levels, but more importantly to detect whether there is a certain effect between the two players such as one player might have over a specific opponent that goes beyond what their ability would predict, factors like style or psychological impact.
+
+```{r male-win-most-of-matches,fig.cap="Most of games in male athlete "}
+
+#Use the words cloud to briefly introduce who has won the most of matches in her/his career, which the total matches for players are above 150
+atp_winner_freq<-atp_matches%>%
+  group_by(Player1)%>%
+  summarise(freq= n())%>%
+  arrange(desc(freq))%>%
+  filter(freq>=150)%>%ungroup
+
+pal <- brewer.pal(8, "Dark2")
+
+wordcloud::wordcloud(words = atp_winner_freq$Player1, freq =atp_winner_freq$freq,
+          scale=c(1.6,0.01),random.order=T, colors=pal, vfont=c("sans serif","plain"))
+
+```
+
+```{r female-win-most-of-matches,fig.cap="Most of games in female athlete }
+wta_winner_freq<-wta_matches%>%
+  group_by(Player1)%>%
+  summarise(freq= n())%>%
+  arrange(desc(freq))%>%
+  filter(freq>=150)%>%ungroup
+wordcloud::wordcloud(words = wta_winner_freq$Player1, freq =wta_winner_freq$freq,
+          scale=c(1.4,0.01),random.order=T, colors=pal, vfont=c("sans serif","plain"))
+
+```
+
+
+The figure \@ref(fig:male-win-most-of-matches) and the figure \@ref(fig:female-win-most-of-matches) show the male and female players who have won more than 150 games are in the last ten years. Novak Djokovic, as the current number one male player in the world rankings, has won more than 500 matches over the past last decay, and Roger Ferrer and Rafael Nadal who are the current top 10 players in the world, winning more than 450 matches. On the other hand, Caroline Wozniacki was the top 1 female players between 2010 and 2012, has won more than 370 matches in the last ten year. 
 
 ## Evaluating the head to head effect in each tier
 
