@@ -1,0 +1,98 @@
+---
+title: "bpc_draft"
+author: "XITONG HE(29026342)"
+date: "16/05/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message = FALSE,warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(bpcs)
+library(rstan)
+library(rvest)
+
+```
+
+
+```{r read-tennis-data}
+atp_results <- readRDS(here::here("data/atp_results.rds"))%>%
+  filter(Retired!="TRUE",Walkover!="TRUE")
+
+atp_results%>%
+  select(Player1,Player2)%>%
+  rename(player0=Player1,player1=Player2)%>%
+  mutate(y=as.numeric(0))->atp_results
+
+wta_results <- readRDS(here::here("data/wta_results.rds"))%>%
+  filter(Retired!="TRUE",Walkover!="TRUE")
+
+wta_results%>%
+  select(Player1,Player2)%>%
+  rename(player0=Player1,player1=Player2)%>%
+  mutate(y=as.numeric(0))->wta_results
+```
+
+
+```{r read-tennis-ranking}
+atp_html <- read_html(here::here("data/ATP_Tennis.html"))
+atp_rankings <- html_node(atp_html, "table") %>% html_table(fill=TRUE) 
+# There is only one table in page so use html_node rather than html_nodes
+atp_rankings <- atp_rankings %>% 
+  janitor::remove_empty() %>% 
+  dplyr::as_tibble()
+atp_rankings
+
+
+wta_html <- read_html(here::here("data/WTA_Tennis.html"))
+
+
+wta_rankings <- html_node(wta_html, "table") %>% html_table(fill=TRUE) 
+wta_rankings <- wta_rankings %>% 
+  janitor::remove_empty() %>% 
+  as_tibble()%>%
+  head(100)
+wta_rankings
+
+
+```
+
+```{r top-100-tennis-players}
+atp_results%>%
+  filter(player0%in%atp_rankings$Player&player1%in%atp_rankings$Player)->atp_top_100
+
+wta_results%>%
+  filter(player0%in%wta_rankings$PLAYER&player1%in%wta_rankings$PLAYER)->wta_top_100
+```
+
+
+```{r stan-data-function}
+make_stan_data <- function(data, win, player0, player1){
+  
+  players <- unique(c(data[,player0], data[,player1]))
+  index <- order(players)
+  names(index) <- players
+  
+  model_data  = list(
+    index = index,
+    y = data[,win],
+    player0_indexes = index[data$player0],
+    player1_indexes = index[data$player1],
+    N_total = nrow(data),
+    N_players = max(index)
+  )
+}
+
+
+model_data_atp <- make_stan_data(atp_top_100, "y", "player0", "player1")
+model_data_wta <- make_stan_data(wta_top_100, "y", "player0", "player1")
+
+model <- rstan::stan_model("bpc_h2h.stan")
+```
+
+
