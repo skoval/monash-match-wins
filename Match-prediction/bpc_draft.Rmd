@@ -96,3 +96,103 @@ model <- rstan::stan_model("bpc_h2h.stan")
 ```
 
 
+```{r stan-model}
+# Use VB for testing
+atp_fit_model <- rstan::vb(model, 
+                           data = model_data_atp,
+                           tol_rel_obj = 0.001)
+
+# Use Sampling for testing
+atp_fit <- rstan::sampling(model, 
+                           data = model_data_atp)
+
+
+wta_fit_model <- rstan::vb(model, 
+                           data = model_data_wta,
+                           tol_rel_obj = 0.001)
+wta_fit <- rstan::sampling(model, 
+                           data = model_data_wta)
+
+
+```
+
+
+```{r coefficient-stan-model}
+
+h2h<-summary(atp_fit, pars = "h2h")$summary%>%
+  as.data.frame()%>%
+  rownames_to_column(var = "h2h")
+
+atp_fit_summary <- summary(atp_fit)$summary %>% 
+  as.data.frame() %>% 
+  mutate(variable = rownames(.)) %>% 
+  select(variable, everything()) %>% 
+  as_data_frame()
+
+#VB model
+
+# h2h_model<-summary(fit_model, pars = "h2h")$summary%>%
+#   as.data.frame()%>%
+#   rownames_to_column(var = "h2h")
+
+fit_mcmc <- fit %>% 
+  rstan::extract()
+
+
+wta_fit_summary <- summary(wta_fit)$summary %>% 
+  as.data.frame() %>% 
+  mutate(variable = rownames(.)) %>% 
+  select(variable, everything()) %>% 
+  as_data_frame()
+
+
+wta_h2h<-summary(wta_fit, pars = "h2h")$summary%>%
+  as.data.frame()%>%
+  rownames_to_column(var = "h2h")
+```
+
+```{r check-diagnostics}
+
+
+fit_summary %>% 
+  ggplot(aes(n_eff)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(aes(xintercept = 4000), color = 'red')
+
+#The Rhat statistic helps tell us whether these parameters are so poorly sampled that we have a problem. More or less Rhat tells you whether or not each of the chains has reached a stable posterior distribution, despite starting at different starting values. Gelman recommends that Rhat for each parameter be less than 1.1
+
+fit_summary %>% 
+  ggplot(aes(Rhat)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(aes(xintercept = 1.1), color = 'red')
+
+
+# check the h2h effect whether it is concentrated at 0
+fit_summary %>% 
+  filter(str_detect(variable,"h2h\\["))%>%
+  summarise(mean=mean(mean),`2.5%`=mean(`2.5%`),`97.5%`=mean(`97.5%`),`25%`=mean(`25%`),`75%`=mean(`75%`))%>%
+  mutate(variable=paste("h2h"))%>%
+  ggplot() + 
+  geom_linerange(aes(variable, ymin = `2.5%`,ymax = `97.5%`)) + 
+  geom_crossbar(aes(variable, mean, ymin = `25%`, ymax = `75%`), fill= 'grey') 
+
+wta_fit_summary %>% 
+  ggplot(aes(n_eff)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(aes(xintercept = 4000), color = 'red')
+
+wta_fit_summary %>% 
+  ggplot(aes(Rhat)) + 
+  geom_histogram(bins=30) + 
+  geom_vline(aes(xintercept = 1.1), color = 'red')
+
+
+wta_fit_summary %>% 
+  filter(str_detect(variable,"h2h\\["))%>%
+  summarise(mean=mean(mean),`2.5%`=mean(`2.5%`),`97.5%`=mean(`97.5%`),`25%`=mean(`25%`),`75%`=mean(`75%`))%>%
+  mutate(variable=paste("h2h"))%>%
+  ggplot() + 
+  geom_linerange(aes(variable, ymin = `2.5%`,ymax = `97.5%`)) + 
+  geom_crossbar(aes(variable, mean, ymin = `25%`, ymax = `75%`), fill= 'grey') 
+
+```
