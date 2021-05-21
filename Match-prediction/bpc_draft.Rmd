@@ -28,7 +28,7 @@ atp_results <- readRDS(here::here("data/atp_results.rds"))%>%
   filter(Retired!="TRUE",Walkover!="TRUE")
 
 atp_results%>%
-  select(Player1,Player2)%>%
+  select(Player1,Player2,Surface)%>%
   rename(player0=Player1,player1=Player2)%>%
   mutate(y=as.numeric(0))->atp_results
 
@@ -36,7 +36,7 @@ wta_results <- readRDS(here::here("data/wta_results.rds"))%>%
   filter(Retired!="TRUE",Walkover!="TRUE")
 
 wta_results%>%
-  select(Player1,Player2)%>%
+  select(Player1,Player2,Surface)%>%
   rename(player0=Player1,player1=Player2)%>%
   mutate(y=as.numeric(0))->wta_results
 ```
@@ -67,10 +67,12 @@ wta_rankings
 
 ```{r top-100-tennis-players}
 atp_results%>%
-  filter(player0%in%atp_rankings$Player&player1%in%atp_rankings$Player)->atp_top_100
+  filter(player0%in%atp_rankings$Player&player1%in%atp_rankings$Player)%>%
+  select(player0,player1,y)->atp_top_100
 
 wta_results%>%
-  filter(player0%in%wta_rankings$PLAYER&player1%in%wta_rankings$PLAYER)->wta_top_100
+  filter(player0%in%wta_rankings$PLAYER&player1%in%wta_rankings$PLAYER)%>%
+  select(player0,player1,y)->wta_top_100
 ```
 
 # Model section
@@ -293,3 +295,36 @@ wta_h2h%>%
 ```
 
 Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players appear multiple times among the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
+
+# Random effect with surface
+
+```{r}
+atp_results%>%
+  filter(player0%in%atp_rankings$Player&player1%in%atp_rankings$Player)->atp_surface
+wta_results%>%
+  filter(player0%in%wta_rankings$PLAYER&player1%in%wta_rankings$PLAYER)->wta_surface
+```
+
+```{r random-effect-model,eval=FALSE}
+
+atp_random <- bpc(data = atp_surface,
+          player0 = 'player0',
+          player1 = 'player1',
+          result_column = 'y',
+          model_type = 'bt-U',
+         cluster = 'Surface',
+          solve_ties = 'none', #there are no ties
+          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
+            iter = 3000)
+
+wta_random <- bpc(data = wta_surface,
+          player0 = 'player0',
+          player1 = 'player1',
+          result_column = 'y',
+          model_type = 'bt-U',
+         cluster = 'Surface',
+          solve_ties = 'none', #there are no ties
+          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
+            iter = 3000)
+```
+
