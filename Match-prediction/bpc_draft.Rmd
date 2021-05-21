@@ -4,7 +4,7 @@ author: "XITONG HE(29026342)"
 date: "16/05/2021"
 output: html_document
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -213,4 +213,46 @@ Extract summary statistics on each model parameter:
 3. H2H effect parameters 
 
   *Based on the boxplot in the `atp_fit` and `wta_fit`, the h2h effects are concentrated at 0. The variation in h2h effects between the different players in the `atp_fit` was about 34%, which is higher than the variation with 14% in the `wta_fit`.
+  
+# Evaluating h2h effect 
 
+```{r h2h-atp}
+atp_players <- unique(c(atp_top_100$player0, atp_top_100$player1))
+atp_index <- order(atp_players)
+cbind(atp_players,atp_index)%>%
+  as.data.frame()->atp_players
+atp_top_100%>%
+  left_join(atp_players,by=c("player0"="atp_players"))%>%
+  left_join(atp_players,by=c("player1"="atp_players"))%>%
+  rename(player0_id=atp_index.x,
+         player1_id=atp_index.y)->atp_top_100
+
+atp_fit%>%
+  filter(str_detect(variable,"h2h\\["))%>%
+  #filter(mean>0.1|mean<(-0.1))%>%
+  arrange(desc(-mean))%>%
+  separate(variable,c("h2h","id0","id1"))%>%
+  select(id0,id1,mean)%>%
+  left_join(atp_players,by=c("id0"="atp_index"))%>%
+  left_join(atp_players,by=c("id1"="atp_index"))%>%
+  rename(player0=atp_players.x,
+         player1=atp_players.y)%>%
+  left_join(atp_rankings%>%
+              select(Ranking,Player),by=c("player0"="Player"))%>%
+   left_join(atp_rankings%>%
+              select(Ranking,Player),by=c("player1"="Player"))%>%
+  rename(player0_rank=Ranking.x,
+         player1_rank=Ranking.y)->atp_h2h
+atp_h2h%>%
+  filter(player0_rank<player1_rank&mean<0)%>%
+  select(player0_rank,player1_rank,player0,player1,mean)%>%
+  #arrange(desc(-mean))%>%
+  # kableExtra::kable(caption = "The h2h effect for players with lower win chances ") %>%
+  # kableExtra::kable_styling(bootstrap_options = c("striped", "condensed"), 
+  #               full_width = T, 
+  #               position = "center")%>%
+  DT::datatable(options = list(pageLength = 10),filter = 'top')
+  
+```
+
+From the table above in the `atp_fit`, by filtering the negative mean value of h2h effects which is corresponded to a player who is disadvantaged (lower win chance) than their ability, and the rank of player0s is lower than player1s, it could evaluate the head-to-head effects between higher ranked players and lower ranked players. The largest negative is -0.27 between Dominic Thiem and David Goffin, where Dominic has lower win chance in their matches. On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille. Generally speaking, the higher ranked players have a better level of tennis skill or more talented whereas they are also likely to suffer failure when facing specific opponents,like Dominic Thiem against Kevin Anderson, who are more than 90 places apart in the rankings and the h2h effect with -0.177 shows Dominic has disadvantage with Kevin.
