@@ -159,6 +159,8 @@ wta_h2h<-summary(wta_fit, pars = "h2h")$summary%>%
 # Parameter diagnostics
 
 ```{r check-diagnostics}
+
+#constructed the summary statistics for atp or wta stan model
 atp_fit<-read.csv(here("data/atp_sampling.csv"))
 wta_fit<-read.csv(here("data/wta_sampling.csv"))
 
@@ -294,11 +296,11 @@ wta_h2h%>%
   DT::datatable(options = list(pageLength = 10),filter = 'top')
 ```
 
-Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players appear multiple times among the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
+Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players occurr multiple times in the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
 
 # Random effect with surface
 
-```{r}
+```{r surface-data}
 atp_results%>%
   filter(player0%in%atp_rankings$Player&player1%in%atp_rankings$Player)->atp_surface
 wta_results%>%
@@ -306,7 +308,6 @@ wta_results%>%
 ```
 
 ```{r random-effect-model,eval=FALSE}
-
 atp_random <- bpc(data = atp_surface,
           player0 = 'player0',
           player1 = 'player1',
@@ -326,5 +327,65 @@ wta_random <- bpc(data = wta_surface,
           solve_ties = 'none', #there are no ties
           priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
             iter = 3000)
+# write_csv(atp_random$hpdi,"atp_hpi.csv")
+# write_csv(atp_random$lookup_table,"atp_lookup_table.csv")
 ```
 
+
+```{r coefficient-atp-random}
+#constructed the summary statstics of bpc function in atp data
+atp_hpi<-read.csv(here("data/atp_hpi.csv"))
+atp_lookup<-read.csv(here("data/atp_lookup_table.csv"))
+
+
+
+# check the ability of each players
+# A higher lambda indicates a higher team ability
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"lambda"))%>%
+  separate(Parameter,c("lambda","index"))%>%
+    mutate(index=as.numeric(index)),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+
+
+# check the random effect coefficient with different players in hard surface
+# the effect of a particular cluster in a particular team ability.
+
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="1"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+
+# check the random effect coefficient with different players in clay surface
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="2"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+
+# check the random effect coefficient with different players in grass surface
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="3"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+```
+
+
+From the outputs above,it shows the ability of different players and the effect of the particular surface for player's ability. Thus, Novak Djokovic, Rafael Nadal and Roger Federer have the highest lambda value,indicating that these three players have the advanced the tennis skills compared the rest of players. Instead of only evaluating the ability of different players,the random effect with surface type are included in the model for analyzing the effect of different surface types for a player's ability. So there are three clusters such as cluster 1, cluster 2 and cluster 3, representing the hard, clay,and grass surface. In general, Daniil Medvedev has the best tennis ability in the hard court and Dominic Thiem has more advantage in the clay court whereas Marin Cilic is better playing at grass court.
