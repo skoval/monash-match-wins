@@ -17,7 +17,7 @@ library(bpcs)
 library(rstan)
 library(rvest)
 library(here)
-
+library(BradleyTerry2)
 ```
 
 
@@ -27,18 +27,11 @@ library(here)
 atp_results <- readRDS(here::here("data/atp_results.rds"))%>%
   filter(Retired!="TRUE",Walkover!="TRUE")
 
-atp_results%>%
-  select(Player1,Player2,Surface)%>%
-  rename(player0=Player1,player1=Player2)%>%
-  mutate(y=as.numeric(0))->atp_results
 
 wta_results <- readRDS(here::here("data/wta_results.rds"))%>%
   filter(Retired!="TRUE",Walkover!="TRUE")
 
-wta_results%>%
-  select(Player1,Player2,Surface)%>%
-  rename(player0=Player1,player1=Player2)%>%
-  mutate(y=as.numeric(0))->wta_results
+
 ```
 
 
@@ -66,14 +59,80 @@ wta_rankings
 ```
 
 ```{r top-100-tennis-players}
-atp_results%>%
-  filter(player0%in%atp_rankings$Player&player1%in%atp_rankings$Player)%>%
-  select(player0,player1,y)->atp_top_100
 
+atp_results%>%
+ select(Player1,Player2,Surface) %>%  
+  filter(Player1%in%atp_rankings$Player & Player2%in%atp_rankings$Player)->atp_top_100
 wta_results%>%
-  filter(player0%in%wta_rankings$PLAYER&player1%in%wta_rankings$PLAYER)%>%
-  select(player0,player1,y)->wta_top_100
+   select(Player1,Player2,Surface)%>%
+filter(Player1%in%wta_rankings$PLAYER & Player2%in%wta_rankings$PLAYER)->wta_top_100
 ```
+
+
+
+```{r}
+atp_top_100%>%
+	dplyr::mutate(
+		player0 = ifelse(Player1 <= Player2, Player1, Player2), # Make player0 first alphabetically
+		player1 = ifelse(Player1 <= Player2, Player2, Player1)
+	) %>%	group_by(player0, player1) %>%
+	dplyr::summarise(	n = n(),y = sum(player0 == Player1),.groups = "drop") %>%
+  rename(total_count=n,
+         p0_count=y)%>%
+  mutate(p1_count=total_count-p0_count,
+          player0 = factor(player0, levels = unique(c(player0, player1))),
+         player1= factor(player1, levels = levels(player0)))->atp_match
+wta_top_100%>%
+	dplyr::mutate(
+		player0 = ifelse(Player1 <= Player2, Player1, Player2), 
+		player1 = ifelse(Player1 <= Player2, Player2, Player1)
+	) %>%	group_by(player0, player1) %>%
+	dplyr::summarise(	n = n(),y = sum(player0 == Player1),.groups = "drop") %>%
+  rename(total_count=n,
+         p0_count=y)%>%
+  mutate(p1_count=total_count-p0_count,
+          player0 = factor(player0, levels = unique(c(player0, player1))),
+         player1= factor(player1, levels = levels(player0)))->wta_match
+```
+
+```{r}
+atp_bt<-BTm(cbind(p0_count,p1_count),player0,player1,~player,id="player",data=atp_match)
+atp_abilities <- BTabilities(atp_bt) # Matrix of ability and StdErr
+
+atp_abilities <- data.frame(
+  Player = rownames(atp_abilities),
+  Ability = atp_abilities[,1],
+  SE = atp_abilities[,2]
+)
+
+atp_abilities$Player <- factor(atp_abilities$Player, 
+                        levels = atp_abilities$Player[order(atp_abilities$Ability)],
+                        order = T)
+atp_match%>%
+  cbind(predict(atp_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->atp_bt_pred
+
+wta_bt<-BTm(cbind(p0_count,p1_count),player0,player1,~player,id="player",data=wta_match)
+wta_abilities <- BTabilities(wta_bt) # Matrix of ability and StdErr
+
+wta_abilities <- data.frame(
+  Player = rownames(wta_abilities),
+  Ability = wta_abilities[,1],
+  SE = wta_abilities[,2]
+)
+
+wta_abilities$Player <- factor(wta_abilities$Player, 
+                        levels = atp_abilities$Player[order(wta_abilities$Ability)],
+                        order = T)
+wta_match%>%
+  cbind(predict(wta_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->wta_bt_pred
+```
+
 
 # Model section
 
@@ -94,16 +153,26 @@ make_stan_data <- function(data, win, player0, player1){
   )
 }
 
+atp_stan<-atp_top_100%>%
+  select(Player1,Player2)%>%
+  rename(player0=Player1,
+         player1=Player2)%>%
+  mutate(y=as.numeric(0))
+wta_stan<-wta_top_100%>%
+  select(Player1,Player2)%>%
+  rename(player0=Player1,
+         player1=Player2)%>%
+  mutate(y=as.numeric(0))
 
-model_data_atp <- make_stan_data(atp_top_100, "y", "player0", "player1")
-model_data_wta <- make_stan_data(wta_top_100, "y", "player0", "player1")
+model_data_atp <- make_stan_data(atp_stan, "y", "player0", "player1")
+model_data_wta <- make_stan_data(wta_stan, "y", "player0", "player1")
 
 model <- rstan::stan_model("bpc_h2h.stan")
 ```
 
 
 ```{r stan-model,eval=FALSE}
-# Use VB for testing
+# Use VB for testing/ VB for model testing/development
 atp_fit_model <- rstan::vb(model, 
                            data = model_data_atp,
                            tol_rel_obj = 0.001)
