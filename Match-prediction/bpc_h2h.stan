@@ -57,5 +57,21 @@ model {
   {
     real p1_win = calculate_win(i, player1_indexes, player0_indexes, lambda, h2h);
     target += bernoulli_lpmf(y[i] | p1_win);
+ // y ~ bernoulli(p1_win)
+    // The log Bernoulli probability mass of y given chance of success 
+    // y ~ bernoulli(theta) 
+    // Increment target log probability density with bernoulli_lpmf( y | theta) dropping constant additive terms
+  }
+}
+
+generated quantities {
+
+  vector[N_total] y_pred;
+  
+  for (i in 1:N_total) {
+    
+    real p1_win = calculate_win(i, player1_indexes, player0_indexes, lambda, h2h);
+    y_pred[i] = bernoulli_rng(p1_win);
+    // Generate a Bernoulli variate with chance of success theta; may only be used in transformed data and generated quantities blocks. 
   }
 }
