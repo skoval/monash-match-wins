@@ -643,7 +643,81 @@ Extract summary statistics on each model parameter:
 3. H2H effect parameters 
 
   *Based on the boxplot in the `atp_fit` and `wta_fit`, the h2h effects are concentrated at 0. The variation in h2h effects between the different players in the `atp_fit` was about 34%, which is higher than the variation with 14% in the `wta_fit`.
+
+# Evaluating h2h effect 
+
+```{r h2h-atp}
+atp_players <- unique(c(atp_stan$player0, atp_stan$player1))
+atp_index <- order(atp_players)
+cbind(atp_players,atp_index)%>%
+  as.data.frame()->atp_players
+atp_stan%>%
+  left_join(atp_players,by=c("player0"="atp_players"))%>%
+  left_join(atp_players,by=c("player1"="atp_players"))%>%
+  rename(player0_id=atp_index.x,
+         player1_id=atp_index.y)->atp_stan
+
+atp_fit%>%
+  filter(str_detect(variable,"h2h\\["))%>%
+  #filter(mean>0.1|mean<(-0.1))%>%
+  arrange(desc(-mean))%>%
+  separate(variable,c("h2h","id0","id1"))%>%
+  select(id0,id1,mean)%>%
+  left_join(atp_players,by=c("id0"="atp_index"))%>%
+  left_join(atp_players,by=c("id1"="atp_index"))%>%
+  rename(player0=atp_players.x,
+         player1=atp_players.y)%>%
+  left_join(atp_rankings%>%
+              select(Ranking,Player),by=c("player0"="Player"))%>%
+   left_join(atp_rankings%>%
+              select(Ranking,Player),by=c("player1"="Player"))%>%
+  rename(player0_rank=Ranking.x,
+         player1_rank=Ranking.y)->atp_h2h
+atp_h2h%>%
+  filter(player0_rank<player1_rank&mean<0)%>%
+  select(player0_rank,player1_rank,player0,player1,mean)%>%
+  DT::datatable(options = list(pageLength = 10),filter = 'top')
   
+```
+
+From the table above in the `atp_fit`, by filtering the negative mean value of h2h effects which is corresponded to a player who is disadvantaged (lower win chance) than their ability, and the rank of player0s is lower than player1s, it could evaluate the head-to-head effects between higher ranked players and lower ranked players. The largest negative is -0.27 between Dominic Thiem and David Goffin, where Dominic has lower win chance in their matches. On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille. Generally speaking, the higher ranked players have a better level of tennis skill or more talented whereas they are also likely to suffer failure when facing specific opponents,like Dominic Thiem against Kevin Anderson, who are more than 90 places apart in the rankings and the h2h effect with -0.177 shows Dominic has disadvantage with Kevin. It is obviously that Roberto Bautista Agut, Adrian Mannarino,Jeremy Chardy and Borna Coric have all appeared twice in the top 10 head-to-head effects, with Jeremy being the only person to be favored whereas Roberto being the only one to be disadvantage in both cases.
+
+```{r h2h-wta}
+wta_players <- unique(c(wta_stan$player0, wta_stan$player1))
+wta_index <- order(wta_players)
+cbind(wta_players,wta_index)%>%
+  as.data.frame()->wta_players
+wta_stan%>%
+  left_join(wta_players,by=c("player0"="wta_players"))%>%
+  left_join(wta_players,by=c("player1"="wta_players"))%>%
+  rename(player0_id=wta_index.x,
+         player1_id=wta_index.y)->wta_stan
+
+wta_fit%>%
+  filter(str_detect(variable,"h2h\\["))%>%
+  arrange(desc(-mean))%>%
+  separate(variable,c("h2h","id0","id1"))%>%
+  select(id0,id1,mean)%>%
+  left_join(wta_players,by=c("id0"="wta_index"))%>%
+  left_join(wta_players,by=c("id1"="wta_index"))%>%
+  rename(player0=wta_players.x,
+         player1=wta_players.y)%>%
+  left_join(wta_rankings%>%
+              select(RANK,PLAYER),by=c("player0"="PLAYER"))%>%
+   left_join(wta_rankings%>%
+              select(RANK,PLAYER),by=c("player1"="PLAYER"))%>%
+  rename(player0_rank=RANK.x,
+         player1_rank=RANK.y)->wta_h2h
+wta_h2h%>%
+  filter(player0_rank<player1_rank&mean<0)%>%
+  select(player0_rank,player1_rank,player0,player1,mean)%>%
+  arrange(desc(-mean))%>%
+  DT::datatable(options = list(pageLength = 10),filter = 'top')
+```
+
+Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players occurr multiple times in the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
+
+
 **Mixed effect model in Stain (Surface random effect ): **
 
 Böckenholt (2001) decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
