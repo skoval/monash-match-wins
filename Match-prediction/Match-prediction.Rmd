@@ -731,41 +731,109 @@ $$ U_{std} \sim N(0,\sigma_{U}^2),[Prior]$$
 
 In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field.
 
-```{r mixed-effect}
-mod3 <- bpc(data = bpcs_sample,
-          player0 = 'player1',
-          player1 = 'player2',
-         player0_score = "p1_count",
-         player1_score = "p2_count",
+
+```{r random-effect-model,eval=FALSE}
+atp_top_100%>%
+  select(player0,player1,Surface)%>%
+  mutate(y=as.numeric(0))->atp_surface
+wta_results%>%select(player0,player1,Surface)%>%
+  mutate(y=as.numeric(0))->wta_surface
+
+atp_random <- bpc(data = atp_surface,
+          player0 = 'player0',
+          player1 = 'player1',
+          result_column = 'y',
           model_type = 'bt-U',
-         cluster = 'Type',
-         solve_ties = 'random', 
-          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
-            iter = 3000)
-mod4 <- bpc(data = bpcs_sample,
-          player0 = 'player1',
-          player1 = 'player2',
-         player0_score = "p1_count",
-         player1_score = "p2_count",
-          model_type = 'davidson-U',
-         cluster = 'Type',
+         cluster = 'Surface',
           solve_ties = 'none', #there are no ties
           priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
             iter = 3000)
+
+wta_random <- bpc(data = wta_surface,
+          player0 = 'player0',
+          player1 = 'player1',
+          result_column = 'y',
+          model_type = 'bt-U',
+         cluster = 'Surface',
+          solve_ties = 'none', #there are no ties
+          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
+            iter = 3000)
+# write_csv(atp_random$hpdi,"atp_hpi.csv")
+# write_csv(atp_random$lookup_table,"atp_lookup_table.csv")
 ```
 
 
-```{r waic-value}
-library(rstan)
+```{r coefficient-atp-random}
+#constructed the summary statstics of bpc function in atp data
+atp_hpi<-read.csv(here("data/atp_hpi.csv"))
+atp_lookup<-read.csv(here("data/atp_lookup_table.csv"))
 
 
-m1_waic <-get_waic(mod1)
-m2_waic <-get_waic(mod2)
-m3_waic <-get_waic(mod3)
-m4_waic<-get_waic(mod4)
-m1_waic
-m2_waic
-m3_waic
-m4_waic
-loo::loo_compare(m1_waic,m2_waic,m3_waic, m4_waic)
+# check the ability of each players
+# A higher lambda indicates a higher team ability
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"lambda"))%>%
+  separate(Parameter,c("lambda","index"))%>%
+    mutate(index=as.numeric(index)),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+
+
+# check the random effect coefficient with different players in hard surface
+# the effect of a particular cluster in a particular team ability.
+
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="1"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+
+# check the random effect coefficient with different players in clay surface
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="2"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+
+# check the random effect coefficient with different players in grass surface
+atp_lookup%>%
+  left_join(atp_rankings%>%
+              select(Player,Ranking),by=c("Names"="Player"))%>%
+  right_join(atp_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="3"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))
+```
+
+From the outputs above,it shows the ability of different players and the effect of the particular surface for player's ability. Thus, Novak Djokovic, Rafael Nadal and Roger Federer have the highest lambda value,indicating that these three players have the advanced the tennis skills compared the rest of players. Instead of only evaluating the ability of different players,the random effect with surface type are included in the model for analyzing the effect of different surface types for a player's ability. So there are three clusters such as cluster 1, cluster 2 and cluster 3, representing the hard, clay,and grass surface. In general, Daniil Medvedev has the best tennis ability in the hard court and Dominic Thiem has more advantage in the clay court whereas Marin Cilic is better playing at grass court.
+
+```{r surface-predicted-value,eval=FALSE}
+new_atp<-atp_surface%>%
+  dplyr::select(player0,player1,Surface)
+
+predict(atp_random,type="response",newdata = new_atp)%>%
+  as_tibble()->atp_pred
+cbind(new_atp,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
+  as_tibble())->atp_surface_pred
+#write_csv(atp_surface_pred,"atp_surface_pred.csv")
+
+new_wta<-wta_surface%>%
+  dplyr::select(player0,player1,Surface)
+predict(wta_random,type="response",newdata = new_wta)%>%
+  as_tibble()->wta_pred
+cbind(new_wta,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
+  as_tibble())->wta_surface_pred
+#write_csv(wta_surface_pred,"wta_surface_pred.csv")
 ```
