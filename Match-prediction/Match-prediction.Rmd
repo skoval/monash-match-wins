@@ -410,50 +410,71 @@ wta_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=wt
 
 
 ```{r p-value}
-ll.null<-model1$null.deviance/-2
-ll.proposed<-model1$deviance/-2
+ll.null<-atp_bt$null.deviance/-2
+ll.proposed<-atp_bt$deviance/-2
 (ll.null-ll.proposed)/ll.null
-1-pchisq(2*(ll.proposed-ll.null),df=(length(model1$coefficients)-1))
+1-pchisq(2*(ll.proposed-ll.null),df=(length(atp_bt$coefficients)-1))
 #The p-value is extremely small, so we can safely reject the null hypothesis that there is no head to head effect advantage.
 
 #Since the dispersion parameter is 1, where is the variance derived from the mean, so the model is suitable as it did not underestimated
 
 
 # construct the coefficient data frame and read the coeffienct in convenient way
-ability<-BTabilities(model1)
-ability<-data.frame(Player=rownames(ability),
-                    Ability=ability[,1],
-                    SE=ability[,2])
-ability$Player<-factor(ability$Player,
-                       levels = ability$Player[order(ability$Ability)],
-                       ordered = T)
+atp_abilities <- BTabilities(atp_bt) # Matrix of ability and StdErr
+
+atp_abilities <- data.frame(
+  Player = rownames(atp_abilities),
+  Ability = atp_abilities[,1],
+  SE = atp_abilities[,2]
+)
+
+atp_abilities$Player <- factor(atp_abilities$Player, 
+                        levels = atp_abilities$Player[order(atp_abilities$Ability)],
+                        order = T)
+atp_match%>%
+  cbind(predict(atp_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->atp_bt_pred
+
+
+wta_abilities <- BTabilities(wta_bt) # Matrix of ability and StdErr
+
+wta_abilities <- data.frame(
+  Player = rownames(wta_abilities),
+  Ability = wta_abilities[,1],
+  SE = wta_abilities[,2]
+)
+
+wta_abilities$Player <- factor(wta_abilities$Player, 
+                        levels = atp_abilities$Player[order(wta_abilities$Ability)],
+                        order = T)
+wta_match%>%
+  cbind(predict(wta_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->wta_bt_pred
 
 ```
 
 
 ```{r ceof-BT-model}
-#coefficient for simple BT model without ties
-result<-read.csv(here("data/ability_no_ties.csv"))
+atp_bt_pred%>%
+  mutate(outcome=as.factor(ifelse(p0_count>p1_count,'win','lose')))%>%
+  calibration_curve(outcome, y_pred) %>%
+  autoplot()
 
-
-player1<-match$Player1
-player2<-match$Player2
-match_count<-match_count%>%
-  filter(p1_count!=p2_count)
-#Calculate odds of Team1 beating Team2 is (Team1/Team2)/(Team1/Team2 + 1)
-match_count$player1_Odds <- as.numeric(unlist(result[match(player1, result[, 1]),][2]))
-
-match_count$player2_Odds <- as.numeric(unlist(result[match(player2, result[, 1]),][2]))
-
-match_count <- match_count%>%
-  mutate(exp_p1_win=as.numeric(unlist(exp(player1_Odds-player2_Odds)/(1+exp(player1_Odds-player2_Odds)))),
-         diff=prob_p1_win-exp_p1_win)%>%
-  select(h2hid,Player1,Player2,exp_p1_win,prob_p1_win)%>%
-  mutate(outcome=as.numeric(prob_p1_win<0.5),
-         exp_p1_win=replace(exp_p1_win,exp_p1_win==1,0.99))
+library(calibcurve)
+atp_bt_pred%>%
+  mutate(outcome=as.factor(ifelse(p0_count>p1_count,'0','1')))%>%
+  calibration_curve(outcome, y_pred) %>%
+  autoplot()
 
 library(givitiR)
-cb1 <- givitiCalibrationBelt(o = match_count$outcome, e = match_count$exp_p1_win,
+atp_bt_pred%>%
+  mutate(outcome=as.numeric(p0_count<p1_count))->data
+
+cb1 <- givitiCalibrationBelt(o = data$outcome, e = data$y_pred,
                              devel = "external")
 plot(cb1, main = "Bradley Terry calibration",
      xlab = "Bradley Terry predicted probability",
@@ -476,84 +497,116 @@ where $$y_{ij}\sim Bernoulli(p[i beats j])$$; $$ \lambda_{i} \sim N(0,\sigma_{\l
 
 The parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
 
-**Davidson Model: **
 
-Ties refer to the case where a subject does not express a preference for a player in a contest. Therefore, **Davidson model** would be introduced to handle ties in the contest between two players, which adds an additional parameter$$\upsilon$$ and computes two probabilities: the probability of i beating j given that it was not a tie $$ P[i beats j|not tie] $$and the probability of the result being a tie $$P[i ties j]$$. A Bayesian formulation of the model is represented below:
+```{r stan-data-function,eval=FALSE}
+#set up the stan model data for atp and wta
+make_stan_data <- function(data, win, player0, player1){
+  
+  players <- unique(c(data[,player0], data[,player1]))
+  index <- order(players)
+  names(index) <- players
+  
+  model_data  = list(
+    index = index,
+    y = data[,win],
+    player0_indexes = index[data$player0],
+    player1_indexes = index[data$player1],
+    N_total = nrow(data),
+    N_players = max(index)
+  )
+}
 
-$$\mathrm{P}(\left[ i \mbox{ beats } j \right]
-|  \mbox{ not tie })=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})+exp(\upsilon+\frac{\lambda_{i}+\lambda_{j}}{2})}$$;
-$$\mathrm{Pr}\left[ i \mbox{ beats } j \right]
-=\frac{exp(\upsilon+\frac{\lambda_{i}+\lambda_{j}}{2})}{exp(\lambda_{i})+exp(\lambda_{j})+exp(\upsilon+\frac{\lambda_{i}+\lambda_{j}}{2})}$$;
-$$y_{ij}\sim Bernoulli(\mathrm{P}\left[ i \mbox{ beats } j \right]| \mbox{ not tie })$$;
-$$tie_{i,j} \sim Bernoulli(\mathrm{P}\left[ i \mbox{ ties } j \right])$$;
-$$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
-$$\upsilon \sim N(0,\sigma_{\lambda}^2),[Prior]$$
+atp_stan<-atp_top_100%>%
+  select(player0,player1)%>%
+  mutate(y=as.numeric(0))
+wta_stan<-wta_top_100%>%
+  select(player0,player1)%>%
+  mutate(y=as.numeric(0))
 
-where the choice of prior in $$\upsilon$$ parameter refers to the prior belief on how ties are affected by the relative difference in players’ abilities.
+model_data_atp <- make_stan_data(atp_stan, "y", "player0", "player1")
+model_data_wta <- make_stan_data(wta_stan, "y", "player0", "player1")
 
-```{r construct-bpc_data}
-atp_surface<-atp_matches%>%
-  group_by(h2hid,Winner,Loser,Surface)%>%
-  tally()%>%
-  ungroup()%>%
-  pivot_wider(names_from = Surface,
-              values_from=n,
-              values_fill=0)
-atp_long%>%
-  group_by(h2hid,Surface)%>%
-  tally()%>%
-  mutate(total_count=n/2)%>%
-  select(-n)%>%
-  ungroup()%>%
-   pivot_wider(names_from = Surface,
-              values_from=total_count,
-              values_fill=0)->h2h_surface_atp
 
-atp_surface%>%
-  rename(p1_clay=Clay,
-         p1_grass=Grass,
-         p1_hard=Hard)%>%
-  left_join(h2h_surface_atp,by="h2hid")%>%
-  mutate(p2_clay=Clay-p1_clay,
-         p2_grass=Grass-p1_grass,
-         p2_hard=Hard-p1_hard,
-         p1_clay=as.numeric(p1_clay),
-         p1_grass=as.numeric(p1_grass),
-         p1_hard=as.numeric(p1_hard))%>%
-  drop_na()%>%
-  select(-Clay,-Grass,-Hard)->surface
+# Use VB for testing/ VB for model testing/development
+atp_fit_model <- rstan::vb(model, 
+                           data = model_data_atp,
+                           tol_rel_obj = 0.001)
+wta_fit_model <- rstan::vb(model, 
+                           data = model_data_wta,
+                           tol_rel_obj = 0.001)
+# Use Sampling for testing
+atp_fit <- rstan::sampling(model, 
+                           data = model_data_atp)
 
-surface%>%
-  rename(player1=Winner,player2=Loser)%>%
-  select(player1,player2,p1_clay,p2_clay)%>%
-  mutate(Type=paste("Clay"))%>%
-  rename(p1_count=p1_clay,
-         p2_count=p2_clay)->clay
+wta_fit <- rstan::sampling(model, 
+                           data = model_data_wta)
 
-surface%>%
-  rename(player1=Winner,player2=Loser)%>%
-  select(player1,player2,p1_grass,p2_grass)%>%
-  mutate(Type=paste("Grass"))%>%
-  rename(p1_count=p1_grass,
-         p2_count=p2_grass)->grass
+#construct the clean cefficient from the output of stan-model
+atp_fit_summary <- summary(atp_fit)$summary %>% 
+  as.data.frame() %>% 
+  mutate(variable = rownames(.)) %>% 
+  select(variable, everything()) %>% 
+  as_data_frame()
+# write_csv(atp_fit_summary,"atp_sampling.csv")
 
-surface%>%
-  rename(player1=Winner,player2=Loser)%>%
-  select(player1,player2,p1_hard,p2_hard)%>%
-  mutate(Type=paste("Hard"))%>%
-  rename(p1_count=p1_hard,
-         p2_count=p2_hard)->hard
-
-clay%>%
-  rbind(hard)%>%
-  rbind(grass)->bpcs_data
-bpcs_data%>%
-   arrange(desc(p1_count))%>%
-  head(1000)%>%
-  na.omit()%>%
-  mutate(player1=as.character(player1),
-         player2=as.character(player2))->bpcs_sample
+wta_fit_summary <- summary(wta_fit)$summary %>% 
+  as.data.frame() %>% 
+  mutate(variable = rownames(.)) %>% 
+  select(variable, everything()) %>% 
+  as_data_frame()
+# write_csv(wta_fit_summary,"wta_sampling.csv")
 ```
+
+### Parameter diagnostics
+
+```{r check-diagnostics}
+
+#constructed the summary statistics for atp or wta stan model
+atp_fit<-read.csv(here("data/atp_sampling.csv"))
+wta_fit<-read.csv(here("data/wta_sampling.csv"))
+
+atp_fit %>% 
+  ggplot(aes(n_eff)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(aes(xintercept = 4000), color = 'red')
+
+wta_fit %>% 
+  ggplot(aes(n_eff)) + 
+  geom_histogram(bins = 30) + 
+  geom_vline(aes(xintercept = 4000), color = 'red')
+
+atp_fit %>% 
+  ggplot(aes(Rhat)) + 
+  geom_histogram(bins=6) + 
+  geom_vline(aes(xintercept = 1.05), color = 'red')+
+  geom_vline(aes(xintercept = 0.9), color = 'red')
+
+wta_fit %>% 
+  ggplot(aes(Rhat)) + 
+  geom_histogram(bins=6) + 
+  geom_vline(aes(xintercept = 1.05), color = 'red')+
+    geom_vline(aes(xintercept = 0.9), color = 'red')
+
+# check the h2h effect whether it is concentrated at 0
+atp_fit %>% 
+  filter(str_detect(variable,"h2h\\["))%>%
+  summarise(mean=mean(mean),`2.5%`=mean(`X2.5.`),`97.5%`=mean(`X97.5.`),`25%`=mean(`X25.`),`75%`=mean(`X75.`))%>%
+  mutate(variable=paste("h2h"))%>%
+  ggplot() + 
+  geom_linerange(aes(variable, ymin = `2.5%`,ymax = `97.5%`)) + 
+  geom_crossbar(aes(variable, mean, ymin = `25%`, ymax = `75%`), fill= 'grey') 
+
+
+wta_fit %>% 
+  filter(str_detect(variable,"h2h\\["))%>%
+  summarise(mean=mean(mean),`2.5%`=mean(`X2.5.`),`97.5%`=mean(`X97.5.`),`25%`=mean(`X25.`),`75%`=mean(`X75.`))%>%
+  mutate(variable=paste("h2h"))%>%
+  ggplot() + 
+  geom_linerange(aes(variable, ymin = `2.5%`,ymax = `97.5%`)) + 
+  geom_crossbar(aes(variable, mean, ymin = `25%`, ymax = `75%`), fill= 'grey') 
+
+```
+
 
 
 ```{r bpc-BT-model}
@@ -579,7 +632,18 @@ mod2 <- bpc(data = bpcs_sample,
             iter = 3000)
 ```
 
+Extract summary statistics on each model parameter:
 
+1. n_eff: the effective sample size
+  *`n_eff` measures the effective sample size of that particular parameter which is the sum of the effectively independent sampling iterations across all chains. The smaller `n_eff`, the greater the uncertainty associated with the corresponding parameter. In this case, There are 4 chains, with 2000 iterations, half of which are warmup, meaning it has sampled 1000 iterations in each chain, so the max n_eff possible in this case is 4000. Based on the summary with `atp_fit` and `wta_fit`, most of parameters have a fairly high n_eff value,indicating that most of estimated parameter have better precision.
+  
+2. Rhat: the potential scale reduction statistic
+  *`Rhat` statistic is roughly the ratio of the variance of a parameter when the data is pooled across all of the chains to the within-chain variance so it can helps tell us whether these parameters are so poorly sampled and measures the extent to which chains are reaching different conclusions. Gelman recommends that Rhat should be less than 1.05 and greater than 0.9 for the parameters of interest. In this case, all the Rhat values of the estimated parameters in `atp_fit` and `wta_fit` are converged into the range.
+  
+3. H2H effect parameters 
+
+  *Based on the boxplot in the `atp_fit` and `wta_fit`, the h2h effects are concentrated at 0. The variation in h2h effects between the different players in the `atp_fit` was about 34%, which is higher than the variation with 14% in the `wta_fit`.
+  
 **Mixed effect model in Stain (Surface random effect ): **
 
 Böckenholt (2001) decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
