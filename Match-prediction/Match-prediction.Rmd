@@ -265,15 +265,8 @@ wta_surface_out $dependencies = c(wta_surface_out $dependencies, htmlwidgets:::w
 wta_surface_out
 ```
 
-In the next section, a variety of prediction methods will be introduced formally, and evaluated the estimates for parameters of the model and model performance.
+In the follwoing section, a variety of prediction methods will be introduced formally, and evaluated the estimates for parameters of the model and model performance.
 
-# Model analysis
-
-The model analysis was conducted to identify different forecasting methods for tennis match result. The majority of approaches to tennis match prediction fall into two categories: simple pair comparison models and Bayesian Paired Comparison models in Stan.
-
-## Data re-preparation
-
-For avoiding the technical issue such as the system crush, overload and time consumption, a subset data with selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full datasets with ATP and WTA matches record. Therefore, `atp_ranking` and `wta_ranking` were collected from the official websites, atpworldtour.com and wtatennis.com respectively, with the rankings of the top 100 women and 100 men and they joined with the full dataset so the players were limited in the ranking of top 100 in both male and female for the final model data and it will be used for modeling.
 
 ```{r read-tennis-ranking}
 library(rvest)
@@ -333,9 +326,11 @@ h2h_count(wta_top_100,player0,player1)%>%
 ```
 
 
-## Modeling section
+# Modeling section
 
-### Pairwise Comparison Models
+The model analysis was conducted to identify different forecasting methods for tennis match result. The majority of approaches to tennis match prediction fall into two categories: simple pair comparison models and Bayesian Paired Comparison models in Stan.
+
+## Pairwise Comparison Models
 
 Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous method for establishing pairwise comparison is Bradley Terry Model[@bradley1952rank], applying in the contest between two players.
 
@@ -354,6 +349,105 @@ $$\lambda_{i}=\sum_{r=1}^{p}{\beta_{r}x_{ir}+U_{i}}$$
 The inclusion of the prediction error $$U_i$$ allows for variability between players with equal covariate values and induces correlation between comparisons with a common player. 
 
 
+## Bayesian Paired Comparison models in Stan
+
+**Simple Bradley Terry model: **
+
+The `bpcs` package utilizes normal priors for the $$\lambda$$ parameters and models the outcome variable $$y_{i,j}$$ of a single contest between players i and j with a Bernoulli distribution, based on the probability of winning for $$\mathrm{P}(\left[ i \mbox{ beats } j \right]$$.
+
+The simple Bayesian Bradley Terry Model is:
+
+$$\mathrm{P}(\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})}=\lambda_{i}-\lambda_{j}$$
+
+where $$y_{ij}\sim Bernoulli(p[i beats j])$$; $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$
+
+The parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
+
+**Mixed effect model in Stain (Surface random effect ): **
+
+Böckenholt (2001) decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
+$$\mathrm{Pr}\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i,s})}{exp(\lambda_{i,s})+exp(\lambda_{j,s})}$$;
+$$\lambda_{i,s}=\lambda_{i}+U_{i,s}$$;
+
+$$y_{ij}\sim Bernoulli(\mathrm{P}\left[ i \mbox{ beats } j \right])$$;
+$$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
+$$ U_{i,s} \sim N(0,U_{std}^2),[Prior]$$;
+$$ U_{std} \sim N(0,\sigma_{U}^2),[Prior]$$
+
+In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field.
+
+
+# Impelementation
+
+The model performance and model evaluation for three different models will be discussed in this section and it will discussed the measurement for  the predictions made by the models in this project for example calibration process between predicted value and actual value.
+
+## Data re-preparation
+
+For avoiding the technical issue such as the system crush, overload and time consumption, a subset data with selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full datasets with ATP and WTA matches record. Therefore, `atp_ranking` and `wta_ranking` were collected from the official websites, atpworldtour.com and wtatennis.com respectively, with the rankings of the top 100 women and 100 men and they joined with the full dataset so the players were limited in the ranking of top 100 in both male and female for the final model data and it will be used for modeling.
+
+
+```{r read-tennis-ranking}
+library(rvest)
+atp_html <- read_html(here::here("data/ATP_Tennis.html"))
+atp_rankings <- html_node(atp_html, "table") %>% html_table(fill=TRUE) 
+# There is only one table in page so use html_node rather than html_nodes
+atp_rankings <- atp_rankings %>% 
+  janitor::remove_empty() %>% 
+  dplyr::as_tibble()
+atp_rankings
+
+
+wta_html <- read_html(here::here("data/WTA_Tennis.html"))
+
+
+wta_rankings <- html_node(wta_html, "table") %>% html_table(fill=TRUE) 
+wta_rankings <- wta_rankings %>% 
+  janitor::remove_empty() %>% 
+  as_tibble()%>%
+  head(100)
+wta_rankings
+
+
+```
+
+```{r subset-top-100-players}
+atp_results%>%
+ select(player0,player1,Surface,Player0,Player1) %>%  
+  filter(player0%in%atp_rankings$Player & player1%in%atp_rankings$Player)->atp_top_100
+
+wta_results%>%
+ select(player0,player1,Surface,Player0,Player1) %>%  
+  filter(player0%in%wta_rankings$PLAYER & player1%in%wta_rankings$PLAYER)->wta_top_100
+h2h_count<-function(data,player0,player1){
+  data%>%
+    group_by(Player0, Player1) %>%
+	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")
+}
+
+```
+
+```{r construct-clean-datasets}
+# tidy up new matches data and convert the two factors for players into same level in terms of building the model
+h2h_count(atp_top_100,player0,player1)%>%
+  rename(total_count=n,
+         p0_count=y)%>%
+  mutate(p1_count=total_count-p0_count,
+          Player0 = factor(Player0, levels = unique(c(Player0, Player1))),
+         Player1= factor(Player1, levels = levels(Player0)))->atp_match
+
+h2h_count(wta_top_100,player0,player1)%>%
+  rename(total_count=n,
+         p0_count=y)%>%
+  mutate(p1_count=total_count-p0_count,
+          Player0 = factor(Player0, levels = unique(c(Player0, Player1))),
+         Player1= factor(Player1, levels = levels(Player0)))->wta_match
+```
+
+
+## Bradley Terry Model Evaluation
+
+Firstly, using the`BTm` function from the package to construct the Bradley Terry model with ATP and WTA ranking data and then the `BTabilities` function will computes the baseline ability of each player from the model objects such as Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data.
+
 ```{r simple-BT-model}
 #the coefficients are maximum likelihood estimates of lambda n with lambda1( the log-ability for Tomislav Brkic) set to zero as identifying convention
 
@@ -364,7 +458,6 @@ wta_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=wt
 #summary(model1)
 ```
 
-Therefore, using the`BTm` function from the package to construct the Bradley Terry model with ATP and WTA ranking data and the `BTabilities` function will computes the baseline ability of each player from the model objects such as Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data.
 
 
 
@@ -447,15 +540,7 @@ plot(cb1, main = "Bradley Terry calibration",
 
 **Simple Bradley Terry model: **
 
-The `bpcs` package utilizes normal priors for the $$\lambda$$ parameters and models the outcome variable $$y_{i,j}$$ of a single contest between players i and j with a Bernoulli distribution, based on the probability of winning for $$\mathrm{P}(\left[ i \mbox{ beats } j \right]$$.
 
-The simple Bayesian Bradley Terry Model is:
-
-$$\mathrm{P}(\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})}=\lambda_{i}-\lambda_{j}$$
-
-where $$y_{ij}\sim Bernoulli(p[i beats j])$$; $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$
-
-The parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
 
 
 ```{r stan-data-function,eval=FALSE}
@@ -680,16 +765,6 @@ Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wt
 
 **Mixed effect model in Stain (Surface random effect ): **
 
-Böckenholt (2001) decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
-$$\mathrm{Pr}\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i,s})}{exp(\lambda_{i,s})+exp(\lambda_{j,s})}$$;
-$$\lambda_{i,s}=\lambda_{i}+U_{i,s}$$;
-
-$$y_{ij}\sim Bernoulli(\mathrm{P}\left[ i \mbox{ beats } j \right])$$;
-$$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
-$$ U_{i,s} \sim N(0,U_{std}^2),[Prior]$$;
-$$ U_{std} \sim N(0,\sigma_{U}^2),[Prior]$$
-
-In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field.
 
 
 ```{r random-effect-model,eval=FALSE}
