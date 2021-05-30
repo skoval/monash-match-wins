@@ -38,6 +38,10 @@ library(ggrepel)
 library(RColorBrewer)
 library(scales)
 library(formattable) 
+library(bpcs)
+library(BradleyTerry2)
+library(rvest)
+library(rstan)
 ```
 
 
@@ -218,7 +222,7 @@ wta_tier_out
 
 ## Evaluating the H2H effect in each surface
 
-
+Similarly, the table \@ref(tab:atp_surface_summary) and table \@ref(tab:awta_surface_summary) represent the number of tennis matches occurred in different surface type in the last decay. Obviously, the majority of matches, and even matchups more than three times, take place on hard courts, where movement tends to be medium to fast because the court absorbs little energy and players are able to use a variety of spins during the match. In addition, Clay court is the second highest frequency playing surface and it examines the return ability of players as the balls bounce relatively high and lose a lot of initial velocity on contact with the water. Moreover, the number of matches for more than three times with same opponent are small in these two table, suggesting that the number of matches in head to head effect is relatively small even in ten years record.
 
 ```{r atp_surface_summary,fig.cap="Matches of head to head effect on three types of surface in ATP"}
 
@@ -247,12 +251,11 @@ atp_surface_out
 surface_count(wta_results,player0,player1,Surface)%>%
   group_by(Surface)%>%summarise(`match`=sum(n))%>%
   left_join(surface_count(wta_results,player0,player1,Surface)%>%
-              filter(n==2)%>%group_by(Surface)%>%summarise(`match`=sum(n)),by=c('Surface'='Surface'))%>%
+              filter(n==2)%>%group_by(Surface)%>%summarise(`match=2`=sum(n,na.rm=TRUE)),by=c('Surface'='Surface'))%>%
    left_join(surface_count(wta_results,player0,player1,Surface)%>%
-              filter(n>=3)%>%group_by(Surface)%>%summarise(`match`=sum(n)),by=c('Surface'='Surface'))%>%
-  rename(match=match.x,
-         `match=2`=match.y,
-         `match>=3`=match)%>%
+              filter(n>=3)%>%group_by(Surface)%>%summarise(`match>=3`=sum(n,na.rm=TRUE)),by=c('Surface'='Surface'))->wta_surface
+wta_surface[is.na(wta_surface)] = 0
+wta_surface%>%
   mutate(`per(match>=3)`=percent(`match>=3`/sum(`match>=3`)))->wta_surface
 
 wta_surface_out = as.htmlwidget(formattable(wta_surface,
@@ -262,65 +265,18 @@ wta_surface_out $dependencies = c(wta_surface_out $dependencies, htmlwidgets:::w
 wta_surface_out
 ```
 
-## Calculating the head to head effect on win odds for each matches
-
-(summarize the total matches of each pair players, and calculating the winners odd who has won most of matches between two players)
-
-
-```{r long-format-matches}
-# tidy up the data(rename and select variables)
-atp_results%>%
-  select(ID1,ID2,Player1,Player2,Surface,Tier)%>%
-  mutate(h2hid=paste0(ID1, ':', ID2),
-         matches=paste0(Player1, ':', Player2))->atp_matches
-
-
-# Make long format by stacking winners and losers
-atp_long <- rbind(
-	atp_results %>% filter(Retired!="TRUE",Walkover!="TRUE")%>% dplyr::select(playerid = ID1, opponentid = ID2, ID_T, ID_R, DATE, Surface, player = Player1, MatchID, Tier) %>% dplyr::mutate(matchwin = TRUE),
-	atp_results %>% filter(Retired!="TRUE",Walkover!="TRUE")%>%
-	  dplyr::select(playerid = ID2, opponentid = ID1, ID_T, ID_R, DATE, Surface, player = Player2, MatchID, Tier) %>% dplyr::mutate(matchwin = FALSE)
-)
-
-head_to_head <- function(id1, id2){
-	# assign h2h idea 
-	ifelse(id1 > id2, paste(id1, id2, sep = ":"), paste(id2, id1, sep = ":"))
-}
-
-atp_long <- atp_long %>%
-	dplyr::mutate(
-		h2hid = head_to_head(playerid, opponentid)
-	)
-```
-
-
-```{r calculating the prob}
-atp_h2h_match<-atp_matches%>%
-  group_by(h2hid,Player1,Player2)%>%
-  tally()%>%
-  ungroup(h2hid)
-
-#use the atp_long data set to calculate the total number of each pair players where they met
-atp_h2h_count<-atp_long%>%
-  group_by(h2hid)%>%
-  tally()%>%
-  mutate(total_count=n/2)%>%
-  select(-n)%>%
-  ungroup()
-
-#calculate the win probability and lose probability for each pair players in terms of total number of the matches
-match_count<-left_join(atp_h2h_match,atp_h2h_count,by="h2hid")%>%
-  drop_na()%>%#drop na since some of data are included in the total matches of each pair palyers but only different in winning players
-  rename(p1_count=n)%>%
-  mutate(p2_count=round(total_count-p1_count,3),
-         prob_p1_win=round(p1_count/total_count,3),
-         prob_p2_win=round(p2_count/total_count,3))
-```
+In the next section, a variety of prediction methods will be introduced formally, and evaluated the estimates for parameters of the model and model performance.
 
 # Model analysis
 
+The model analysis was conducted to identify different forecasting methods for tennis match result. The majority of approaches to tennis match prediction fall into two categories: simple pair comparison models and Bayesian Paired Comparison models in Stan.
+
+## Data re-preparation
+
+For avoiding the technical issue such as the system crush, overload and time consumption, a subset data with selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full datasets with ATP and WTA matches record. Therefore, `atp_ranking` and `wta_ranking` were collected from the official websites, atpworldtour.com and wtatennis.com respectively, with the rankings of the top 100 women and 100 men and they joined with the full dataset so the players were limited in the ranking of top 100 in both male and female for the final model data and it will be used for modeling.
 
 ```{r read-tennis-ranking}
+library(rvest)
 atp_html <- read_html(here::here("data/ATP_Tennis.html"))
 atp_rankings <- html_node(atp_html, "table") %>% html_table(fill=TRUE) 
 # There is only one table in page so use html_node rather than html_nodes
@@ -361,7 +317,6 @@ h2h_count<-function(data,player0,player1){
 
 ```{r construct-clean-datasets}
 # tidy up new matches data and convert the two factors for players into same level in terms of building the model
-# remove the ties from two players
 h2h_count(atp_top_100,player0,player1)%>%
   rename(total_count=n,
          p0_count=y)%>%
@@ -378,24 +333,25 @@ h2h_count(wta_top_100,player0,player1)%>%
 ```
 
 
-## Pairwise Comparison Models
+## Modeling section
+
+### Pairwise Comparison Models
+
 Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous method for establishing pairwise comparison is Bradley Terry Model[@bradley1952rank], applying in the contest between two players.
 
 Let $$y_{ij,t}$$ be the outcome of a tennis match that is played between player i and player j at time t. We assume that we have information about K different players over a time period of length n, i.e. i, j =1.... ,K and t =1..., n. The outcome $${y_{ij,t} =1}$$ if player i wins the match at time t whereas the outcome $${y_{ij,t} =0}$$  if player j wins the match at time t. Therefore, the outcomes about $$y_{ij,t}$$ are binary response value.
 
-The conditional probability that yij,t =1 is given by 
-$$Pij,t=P(y_{ij,t}=1|\delta_{ij,t})=\frac{exp(\delta_{ij,t})}{1+exp(\delta_{ij,t})}$$ , $$\delta_{ij,t}=\lambda_{i,j}-\lambda_{j,t}$$
+The conditional probability that $${y_{ij,t} =1}$$is given by 
+$$P_{ij,t}=P(y_{ij,t}=1|\delta_{ij,t})=\frac{exp(\delta_{ij,t})}{1+exp(\delta_{ij,t})}$$ , $$\delta_{ij,t}=\lambda_{i,j}-\lambda_{j,t}$$
 where$$\lambda_{i,t}$$ represents the skill level of player i at time t and $$\lambda_{j,t}$$ represents the skill level
 of player j at time t. The conditional probability of $${y_{ij,t} =0}$$ is instead equal to$$1-P_{ij,t}$$.
 
 On the other hand, this model can be alternatively expressed in the following logit-linear way, which can be reduce the model to logistics regression on pairs of individuals:
-$$logit[P(i beats j)]=logit(P(i>j))=log(\frac{P(i>j)}{1-P(i>j)})=\lambda_{i}-\lambda_{j}$$
-where $$\lambda_{i}$$ =$$log\alpha_{i}$$ for all i and it can be . Based on the i.i.d(independent identifying distributed) assumption for all contests[@klaassen2001points],the parameters $$\lambda_{i}$$ can be estimated by maximum likelihood using `BradleyTerry2` package[@bradley] for generalized linear models. The `BradleyTerry2` package provides a more flexible user interface to allow a wider range of models to be fitted in the data and allows the inclusion of simple random effects, where the $$ \lambda_{i}$$ can be related to explanatory variable via a linear predictor of the form:
+$$\mathrm{P}(\left[ i \mbox{ beats } j \right]=logit(P(i>j))=log(\frac{P(i>j)}{1-P(i>j)})=\lambda_{i}-\lambda_{j}$$
+where $$\lambda_{i}$$ =log$$\alpha_{i}$$ for all i. Based on the i.i.d(independent identifying distributed) assumption for all contests[@klaassen2001points],the parameters $$\lambda_{i}$$ can be estimated by maximum likelihood using `BradleyTerry2` package[@bradley] for generalized linear models. The `BradleyTerry2` package provides a more flexible user interface to allow a wider range of models to be fitted in the data and allows the inclusion of simple random effects, where the $$ \lambda_{i}$$ can be related to explanatory variable via a linear predictor of the form:
 $$\lambda_{i}=\sum_{r=1}^{p}{\beta_{r}x_{ir}+U_{i}}$$
 
 The inclusion of the prediction error $$U_i$$ allows for variability between players with equal covariate values and induces correlation between comparisons with a common player. 
-
-
 
 
 ```{r simple-BT-model}
@@ -407,6 +363,9 @@ atp_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=at
 wta_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=wta_match)
 #summary(model1)
 ```
+
+Therefore, using the`BTm` function from the package to construct the Bradley Terry model with ATP and WTA ranking data and the `BTabilities` function will computes the baseline ability of each player from the model objects such as Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data.
+
 
 
 ```{r p-value}
@@ -447,7 +406,7 @@ wta_abilities <- data.frame(
 )
 
 wta_abilities$Player <- factor(wta_abilities$Player, 
-                        levels = atp_abilities$Player[order(wta_abilities$Ability)],
+                        levels = wta_abilities$Player[order(wta_abilities$Ability)],
                         order = T)
 wta_match%>%
   cbind(predict(wta_bt,type="response")%>%
@@ -483,7 +442,8 @@ plot(cb1, main = "Bradley Terry calibration",
 
 ```
 
-## Bayesian Paired Comparison models in Stan
+
+### Bayesian Paired Comparison models in Stan
 
 **Simple Bradley Terry model: **
 
@@ -735,11 +695,12 @@ In this case, $$s$$ represents different types of surface so $$U_{std}$$ represe
 ```{r random-effect-model,eval=FALSE}
 atp_top_100%>%
   select(player0,player1,Surface)%>%
-  mutate(y=as.numeric(0))->atp_surface
-wta_results%>%select(player0,player1,Surface)%>%
-  mutate(y=as.numeric(0))->wta_surface
+  mutate(y=as.numeric(0))->atp_top_surface
 
-atp_random <- bpc(data = atp_surface,
+wta_top_100%>%select(player0,player1,Surface)%>%
+  mutate(y=as.numeric(0))->wta_top_surface
+
+atp_random <- bpc(data = atp_top_surface,
           player0 = 'player0',
           player1 = 'player1',
           result_column = 'y',
@@ -749,7 +710,7 @@ atp_random <- bpc(data = atp_surface,
           priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
             iter = 3000)
 
-wta_random <- bpc(data = wta_surface,
+wta_random <- bpc(data = wta_top_surface,
           player0 = 'player0',
           player1 = 'player1',
           result_column = 'y',
@@ -760,6 +721,7 @@ wta_random <- bpc(data = wta_surface,
             iter = 3000)
 # write_csv(atp_random$hpdi,"atp_hpi.csv")
 # write_csv(atp_random$lookup_table,"atp_lookup_table.csv")
+#saveRDS(wta_random,"wta_random.rds")
 ```
 
 
