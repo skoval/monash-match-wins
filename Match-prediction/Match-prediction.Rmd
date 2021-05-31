@@ -23,6 +23,8 @@ output:
     number_sections: yes
     citation_package: biblatex
     toc: false
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -63,7 +65,7 @@ wta_results%>%
 
 # Introduction
 
-In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis is one of the appealing sports chosen in this project. The purpose of this project is to study the performance of different prediction methods in men's and women's professional tennis matches. The measure is used to build up the prediction model based on historical data in the last decay. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation between players such as head-to-head effect would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 38,000 tennis matches between 2010 and 2020. 
+In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis is one of the appealing sports chosen in this project. The purpose of this project is to study the performance of different prediction methods in men's and women's professional tennis matches. The measure is used to build up the prediction model based on historical data in the last decay. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation between players such as head-to-head effect would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players. 
 
 # The motivation of this project
 
@@ -72,25 +74,18 @@ The main objective of the project is to develop and evaluate different approache
 
 # Data description {#data}
 
-This section mainly introduces the data, data sources and data description.   
 
-There are two data sets used on this analysis report, and both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures.  
+There are two data sets such as `atp_results` and `wta_results`used on this analysis report, and the two data sets consist of approximately 36,000 matches information from 2011-01-01 to 2020-01-23 in ATP tour and WTA tour. Both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures. 
+The table \@ref(tab:data-structure) summarises the key information which is contained about each match in the data. The data sets also contain further side information such as player id, date of tennis tournments, Name of the match, the around in tennis match and ect. The full list is omitted as none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project. Theoretically, the full data sets should be used for data modeling but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem.
 
 
-## ATP_results
+```{r datstructure, warning=FALSE, message=FALSE}
+data <- data.frame(
+  Variable = c("Surface","Player1","Player2","Tier"),
+  Description = c("Match Surface","Match Winner","Match Loser","collective term referring to the group of matches or rubbers played between two teams in a team tennis even" ))
 
-The `atp_results` data source is from [Github skoval](https://github.com/skoval/monash-match-wins). The data contains the ATP tour results in the last decay, which is a worldwide top-tier tennis tour for men organized by the Association of Tennis Professionals, with `r nrow(atp_results)` observations and `r ncol(atp_results)`variables from 2011-01-01 to 2020-01-23.   
-
-The variables information included in the data are shown as the following table, Players, Surface,MatchID and Tier variables were mainly used for this analysis.    
-
-```{r atp-data, warning=FALSE, message=FALSE}
-atp_data <- data.frame(
-  Variable = c("ID1","ID2","ID_T","ID_R","RESULT","DATE","NAME_T","DATE_T","Surface","Player1","Player2","Retired","Walkover","Qualifying","MatchID","Tier"),
-  Description = c("Winner ID", "Loser ID","Terminology ID","The around in tennis match","Matches games results","Match Date","Name of the match","Date of tennis tourments","Match Surface","Match Winner","Match Loser","withdrawal of a player during a match, usually due to injury and illness","victory awarded to a player when their opponent concedes a match before it begins, usually due to injury or illness","preliminary event that offers players whose rankings don’t gain them direct entry in the main draw of a tournament, the opportunity to win a spot in that main draw","Unique ID for each match","collective term referring to the group of matches or rubbers played between two teams in a team tennis even"
-  ))
-
-atp_data %>%
-  kable(caption = "Association of Tennis Professionals") %>%
+data %>%
+  kable(caption = "Key match informatiom") %>%
   kable_styling(bootstrap_options = 
                 c("striped", "condensed"), 
                 full_width = F, 
@@ -98,24 +93,8 @@ atp_data %>%
 ```
 
 
- 
-## WTA data
 
-The `wta_results`data was gathered from [Github skoval](https://github.com/skoval/monash-match-wins) as well, of which is recorded the worldwide professional tennis tour match results for women. This dataset contains `r nrow(wta_results)` observation and `r ncol(wta_results)` variables from 2011-01-01 to 2020-01-23 and the data structure is shown as the below tables: 
 
-```{r wta-data, warning=FALSE, message=FALSE}
-wta_data <- data.frame(
-  Variable = c("ID1","ID2","ID_T","ID_R","RESULT","DATE","NAME_T","DATE_T","Surface","Player1","Player2","Retired","Walkover","Qualifying","MatchID","Tier"),
-  Description = c("Winner ID", "Loser ID","Terminology ID","The around in tennis match","Matches games results","Match Date","Name of the match","Date of tennis tourments","Match Surface","Match Winner","Match Loser","withdrawal of a player during a match, usually due to injury and illness","victory awarded to a player when their opponent concedes a match before it begins, usually due to injury or illness","preliminary event that offers players whose rankings don’t gain them direct entry in the main draw of a tournament, the opportunity to win a spot in that main draw","Unique ID for each match","collective term referring to the group of matches or rubbers played between two teams in a team tennis even"
-  ))
-
-wta_data %>%
-  kable(caption = "Women’s Tennis Association Tour") %>%
-  kable_styling(bootstrap_options = 
-                c("striped", "condensed"), 
-                full_width = F, 
-                position = "center")
-```
 
 # Head to Head effect Analysis
 
@@ -265,65 +244,7 @@ wta_surface_out $dependencies = c(wta_surface_out $dependencies, htmlwidgets:::w
 wta_surface_out
 ```
 
-In the follwoing section, a variety of prediction methods will be introduced formally, and evaluated the estimates for parameters of the model and model performance.
-
-
-```{r read-tennis-ranking}
-library(rvest)
-atp_html <- read_html(here::here("data/ATP_Tennis.html"))
-atp_rankings <- html_node(atp_html, "table") %>% html_table(fill=TRUE) 
-# There is only one table in page so use html_node rather than html_nodes
-atp_rankings <- atp_rankings %>% 
-  janitor::remove_empty() %>% 
-  dplyr::as_tibble()
-atp_rankings
-
-
-wta_html <- read_html(here::here("data/WTA_Tennis.html"))
-
-
-wta_rankings <- html_node(wta_html, "table") %>% html_table(fill=TRUE) 
-wta_rankings <- wta_rankings %>% 
-  janitor::remove_empty() %>% 
-  as_tibble()%>%
-  head(100)
-wta_rankings
-
-
-```
-
-```{r subset-top-100-players}
-atp_results%>%
- select(player0,player1,Surface,Player0,Player1) %>%  
-  filter(player0%in%atp_rankings$Player & player1%in%atp_rankings$Player)->atp_top_100
-
-wta_results%>%
- select(player0,player1,Surface,Player0,Player1) %>%  
-  filter(player0%in%wta_rankings$PLAYER & player1%in%wta_rankings$PLAYER)->wta_top_100
-h2h_count<-function(data,player0,player1){
-  data%>%
-    group_by(Player0, Player1) %>%
-	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")
-}
-
-```
-
-```{r construct-clean-datasets}
-# tidy up new matches data and convert the two factors for players into same level in terms of building the model
-h2h_count(atp_top_100,player0,player1)%>%
-  rename(total_count=n,
-         p0_count=y)%>%
-  mutate(p1_count=total_count-p0_count,
-          Player0 = factor(Player0, levels = unique(c(Player0, Player1))),
-         Player1= factor(Player1, levels = levels(Player0)))->atp_match
-
-h2h_count(wta_top_100,player0,player1)%>%
-  rename(total_count=n,
-         p0_count=y)%>%
-  mutate(p1_count=total_count-p0_count,
-          Player0 = factor(Player0, levels = unique(c(Player0, Player1))),
-         Player1= factor(Player1, levels = levels(Player0)))->wta_match
-```
+In the following section, a variety of prediction methods will be introduced formally, and evaluated the estimates for parameters of the model and model performance.
 
 
 # Modeling section
@@ -332,18 +253,19 @@ The model analysis was conducted to identify different forecasting methods for t
 
 ## Pairwise Comparison Models
 
-Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous method for establishing pairwise comparison is Bradley Terry Model[@bradley1952rank], applying in the contest between two players.
+Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous and more effective method for establishing pairwise comparison is Bradley Terry Model[@bradley1952rank], applying in the contest between two players.
 
 Let $$y_{ij,t}$$ be the outcome of a tennis match that is played between player i and player j at time t. We assume that we have information about K different players over a time period of length n, i.e. i, j =1.... ,K and t =1..., n. The outcome $${y_{ij,t} =1}$$ if player i wins the match at time t whereas the outcome $${y_{ij,t} =0}$$  if player j wins the match at time t. Therefore, the outcomes about $$y_{ij,t}$$ are binary response value.
 
 The conditional probability that $${y_{ij,t} =1}$$is given by 
-$$P_{ij,t}=P(y_{ij,t}=1|\delta_{ij,t})=\frac{exp(\delta_{ij,t})}{1+exp(\delta_{ij,t})}$$ , $$\delta_{ij,t}=\lambda_{i,j}-\lambda_{j,t}$$
-where$$\lambda_{i,t}$$ represents the skill level of player i at time t and $$\lambda_{j,t}$$ represents the skill level
-of player j at time t. The conditional probability of $${y_{ij,t} =0}$$ is instead equal to$$1-P_{ij,t}$$.
+$$P_{ij,t}=P(y_{ij,t}=1|\delta_{ij,t})=\frac{exp(\delta_{ij,t})}{1+exp(\delta_{ij,t})}$$;$$\delta_{ij,t}=\lambda_{i,j}-\lambda_{j,t}$$
+where$$\lambda_{i,t}$$ represents the skill level of player i at time t and $$\lambda_{j,t}$$ represents the skill level of player j at time t. The conditional probability of $${y_{ij,t} =0}$$ is instead equal to$$1-P_{ij,t}$$.
 
 On the other hand, this model can be alternatively expressed in the following logit-linear way, which can be reduce the model to logistics regression on pairs of individuals:
 $$\mathrm{P}(\left[ i \mbox{ beats } j \right]=logit(P(i>j))=log(\frac{P(i>j)}{1-P(i>j)})=\lambda_{i}-\lambda_{j}$$
-where $$\lambda_{i}$$ =log$$\alpha_{i}$$ for all i. Based on the i.i.d(independent identifying distributed) assumption for all contests[@klaassen2001points],the parameters $$\lambda_{i}$$ can be estimated by maximum likelihood using `BradleyTerry2` package[@bradley] for generalized linear models. The `BradleyTerry2` package provides a more flexible user interface to allow a wider range of models to be fitted in the data and allows the inclusion of simple random effects, where the $$ \lambda_{i}$$ can be related to explanatory variable via a linear predictor of the form:
+where $$\lambda_{i}$$=log$$\alpha_{i}$$ for all i and is the respective skill parameter of the players. Optimization can be used to jointly solve for skills parameters of all players based on a fixed period of historical results. Match winning probabilities can then be derived based on the same IID assumption used in point models. Therefore, based on the i.i.d(independent identifying distributed) assumption for all contests[@klaassen2001points],the parameters $$\lambda_{i}$$ can be estimated by maximum likelihood using `BradleyTerry2` package[@bradley] for generalized linear models. 
+
+The `BradleyTerry2` package provides a more flexible user interface to allow a wider range of models to be fitted in the data and allows the inclusion of simple random effects, where the $$ \lambda_{i}$$ can be related to explanatory variable via a linear predictor of the form:
 $$\lambda_{i}=\sum_{r=1}^{p}{\beta_{r}x_{ir}+U_{i}}$$
 
 The inclusion of the prediction error $$U_i$$ allows for variability between players with equal covariate values and induces correlation between comparisons with a common player. 
@@ -353,15 +275,30 @@ The inclusion of the prediction error $$U_i$$ allows for variability between pla
 
 **Simple Bradley Terry model: **
 
-The `bpcs` package utilizes normal priors for the $$\lambda$$ parameters and models the outcome variable $$y_{i,j}$$ of a single contest between players i and j with a Bernoulli distribution, based on the probability of winning for $$\mathrm{P}(\left[ i \mbox{ beats } j \right]$$.
+Bayesian inferences are based on a posterior probability density distribution (further referred to as the posterior) regarding the parameters, given the data collected. This allows for a more intuitive interpretation of parameters uncertainty. Therefore, the Bayesian model can be broken down as consisting of:
 
-The simple Bayesian Bradley Terry Model is:
+* Observed variables: The tennis matches outcome. A single outcome will be given the notation r and a set of outcomes D.
+* Unobserved variables: These are the parameters of the model itself which are chosen as part of the model design. These will be represented generally by the notation w.
 
-$$\mathrm{P}(\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})}=\lambda_{i}-\lambda_{j}$$
+* prior probability: P(w) A prior probability distribution on the parameters of the model P(w).A standard normal prior is used in this project.
 
-where $$y_{ij}\sim Bernoulli(p[i beats j])$$; $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$
+For some data D, on a set of n outcomes, the posterior probability of the model parameters can be expressed as:
+$$P(w|D)=\frac{P(D|w)P(w)}{P(D)}$$
+where P(D|w) is the likelihood of the model given n the data and P(D) is marginal likelihood of the model found through normalisation. Under the assumption that outcomes are independent identified distributed, the likelihood can be expressed as:
+$$P(D|w)=\prod_{i = 1}^{N} P(r^i|w)$$ 
 
-The parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
+Moreover, for the prediction with new match $$r^{n+1}$$,it can be made by taking the expectation of $$P(r^{n+1}|w)$$ with respect to the posterior distribution P(w|D). One of the common method to achieve the predicted value is used an approximate inference technique to approximate the full posterior distribution. In this case, it refers to Bayesian approach. 
+
+Applying Bayesian method in Bradley Terry Model, the extension formula is shown as below:
+
+$$\mathrm{P}(\left[ i \mbox{ beats } j \right])=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})}=\frac{1}{1+e^{-(\lambda_{i}-\lambda_{j})}}=sigmoid(\lambda_{i}-\lambda_{j}) $$
+
+where$$\lambda_{i}$$ and $$\lambda_{j}$$ are the player skills which are the parameters of the model, and sigmoid is the logistic sigmoid function: $$\frac{1}{1+e^{-x}}$$. 
+
+For the some of data consisting of a set of match outcomes $$D={r^1,r^2...r^n}$$ for a set of players $$M ={1,2,...,m}$$ with ability $$\lambda={\lambda_{1},\lambda_{2},...,\lambda_{m}}$$,the likelihood of the model given the data can be expressed as:
+$$P(D|\lambda)=\prod_{i = 1}^{N} (sigmoid(\lambda_{a}^i-\lambda_{b}^i))$$
+where $$\lambda_{a}$$ and $$\lambda_{b}$$ are the respective abilities of the winning and losing player of the $$i$$outcomes.
+
 
 **Mixed effect model in Stain (Surface random effect ): **
 
@@ -374,7 +311,7 @@ $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
 $$ U_{i,s} \sim N(0,U_{std}^2),[Prior]$$;
 $$ U_{std} \sim N(0,\sigma_{U}^2),[Prior]$$
 
-In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field.
+In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field. Moreover,the parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
 
 
 # Impelementation
@@ -394,7 +331,7 @@ atp_rankings <- html_node(atp_html, "table") %>% html_table(fill=TRUE)
 atp_rankings <- atp_rankings %>% 
   janitor::remove_empty() %>% 
   dplyr::as_tibble()
-atp_rankings
+
 
 
 wta_html <- read_html(here::here("data/WTA_Tennis.html"))
@@ -405,8 +342,6 @@ wta_rankings <- wta_rankings %>%
   janitor::remove_empty() %>% 
   as_tibble()%>%
   head(100)
-wta_rankings
-
 
 ```
 
@@ -446,31 +381,31 @@ h2h_count(wta_top_100,player0,player1)%>%
 
 ## Bradley Terry Model Evaluation
 
-Firstly, using the`BTm` function from the package to construct the Bradley Terry model with ATP and WTA ranking data and then the `BTabilities` function will computes the baseline ability of each player from the model objects such as Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data.
 
 ```{r simple-BT-model}
-#the coefficients are maximum likelihood estimates of lambda n with lambda1( the log-ability for Tomislav Brkic) set to zero as identifying convention
+#the coefficients are maximum likelihood estimates of lambda n with lambda1( the log-ability for Adrian Mannarino) set to zero as identifying convention
 
 #~player specifies the model for player ability, in this case it stands for ‘tennis capability’ 
 
 atp_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=atp_match)
 wta_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=wta_match)
-#summary(model1)
+
 ```
+**Modeling process:**
+- `BTm` function: constructs the Bradley Terry model with the matrix of p0_count and p1_count from the top 100 players data
+
+- `BTabilities` function:  computes the ability of each player from the model objects against with the baseline player.
+
+**Model output analysis:**
+
+* Ability graph interpretation:
+
+From the table \@ref(tab:estimated-ability), Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data as their ability are 0. In the ATP data,Novak Djokovic,Rafael Nadal and Roger Federer have the highest estimated ability compared with the Adrian Mannarino. All three of them have played and won most of matches and their ranking almost maintain in the top 10 of the world on average, indicating that their tennis level are higher than other players. On the contrary, Lorenzo Musetti and Sebastian Korda have the lowest estimated ability and one of reason for that they have only played one game and even lost in that match,so their ability are estimated quite lower. 
+
+Similarly, in the WTA model,Serena Williams have the highest estimated tennis skill whereas Clara Tauson have the lowest estimated tennis ability compared with Ajla. That could be caused by the fact that Serena won the most of matches like more than 50 matches based on the data and Clara only had played two matches but she lost both of them. 
 
 
-
-
-```{r p-value}
-ll.null<-atp_bt$null.deviance/-2
-ll.proposed<-atp_bt$deviance/-2
-(ll.null-ll.proposed)/ll.null
-1-pchisq(2*(ll.proposed-ll.null),df=(length(atp_bt$coefficients)-1))
-#The p-value is extremely small, so we can safely reject the null hypothesis that there is no head to head effect advantage.
-
-#Since the dispersion parameter is 1, where is the variance derived from the mean, so the model is suitable as it did not underestimated
-
-
+```{r estimated-ability,fig.cap="The estimated ability of different tennis players"}
 # construct the coefficient data frame and read the coeffienct in convenient way
 atp_abilities <- BTabilities(atp_bt) # Matrix of ability and StdErr
 
@@ -483,12 +418,6 @@ atp_abilities <- data.frame(
 atp_abilities$Player <- factor(atp_abilities$Player, 
                         levels = atp_abilities$Player[order(atp_abilities$Ability)],
                         order = T)
-atp_match%>%
-  cbind(predict(atp_bt,type="response")%>%
-  as_tibble())%>%
-  rename(y_pred=value)%>%
-  mutate(prob_p0=p0_count/total_count)->atp_bt_pred
-
 
 wta_abilities <- BTabilities(wta_bt) # Matrix of ability and StdErr
 
@@ -501,36 +430,77 @@ wta_abilities <- data.frame(
 wta_abilities$Player <- factor(wta_abilities$Player, 
                         levels = wta_abilities$Player[order(wta_abilities$Ability)],
                         order = T)
+
+atp_abilities%>%
+  DT::datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for ATP data')
+
+wta_abilities%>%
+   DT::datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for WTA data')
+  
+  # DT::datatable(options = list(pageLength = 10),filter = 'top', rownames = FALSE,caption = htmltools::tags$caption(
+  #   style = 'caption-side: bottom; text-align: center;',
+  #   'Table 2: ', htmltools::em('The estimated ability for WTA data')
+  # ))
+```
+
+* Calibration analysis:
+
+
+
+```{r ceof-BT-model}
+atp_match%>%
+  cbind(predict(atp_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->atp_bt_pred
 wta_match%>%
   cbind(predict(wta_bt,type="response")%>%
   as_tibble())%>%
   rename(y_pred=value)%>%
   mutate(prob_p0=p0_count/total_count)->wta_bt_pred
 
-```
+bins<-function(data){
+  data%>%
+  mutate(bins=as.character(case_when(y_pred<=0.1~0.1,
+                                     y_pred<=0.2&y_pred>0.1~0.2,
+                                     y_pred<=0.3&y_pred>0.2~0.3,
+                                     y_pred<=0.4&y_pred>0.3~0.4,
+                                     y_pred<=0.5&y_pred>0.4~0.5,
+                                     y_pred<=0.6&y_pred>0.5~0.6,
+                                     y_pred<=0.7&y_pred>0.6~0.7,
+                                     y_pred<=0.8&y_pred>0.7~0.8,
+                                     y_pred<=0.9&y_pred>0.8~0.9,
+                                     y_pred<=1&y_pred>0.9~1)))
+}
+
+bin_freq<-function(data){
+  data%>%
+  group_by(bins)%>%
+  summarise(pred_prob=sum(y_pred))%>%
+  left_join(data%>%
+              group_by(bins)%>%
+              tally())%>%
+  mutate(mean_pred=pred_prob/n)%>%
+  select(bins,mean_pred)
+}
+
+bins(atp_bt_pred)->atp_bt_bins
+bin_freq(atp_bins)->atp_bt_freq
 
 
-```{r ceof-BT-model}
-atp_bt_pred%>%
-  mutate(outcome=as.factor(ifelse(p0_count>p1_count,'win','lose')))%>%
-  calibration_curve(outcome, y_pred) %>%
-  autoplot()
+#final calibration table
+atp_bins%>%
+  group_by(bins)%>%
+  summarise(mean_act=sum(p0_count)/sum(total_count))%>%
+  left_join(atp_bt_freq)->atp_cali
 
-library(calibcurve)
-atp_bt_pred%>%
-  mutate(outcome=as.factor(ifelse(p0_count>p1_count,'0','1')))%>%
-  calibration_curve(outcome, y_pred) %>%
-  autoplot()
 
-library(givitiR)
-atp_bt_pred%>%
-  mutate(outcome=as.numeric(p0_count<p1_count))->data
-
-cb1 <- givitiCalibrationBelt(o = data$outcome, e = data$y_pred,
-                             devel = "external")
-plot(cb1, main = "Bradley Terry calibration",
-     xlab = "Bradley Terry predicted probability",
-     ylab = "Observed mortality")
+#scatter plot
+ggplot(atp_cali,aes(mean_act,mean_pred))+
+  geom_line()+
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_bw() 
 
 
 ```
@@ -538,22 +508,40 @@ plot(cb1, main = "Bradley Terry calibration",
 
 ### Bayesian Paired Comparison models in Stan
 
-**Simple Bradley Terry model: **
+#### Bradley Terry model with head-to-head effect
 
+**Modeling process:**
 
+-`model_stan_data`:construct the stan model data with the total number of matches and the number of matches of player0 winning in each pair of players
 
+- `stan model script`: Instead of only using simple Bradley Terry model with bernoulli distribution in a single match,the Stan model data collapse the matches between every pair of players have been became the binomial distribution. 
 
-```{r stan-data-function,eval=FALSE}
-#set up the stan model data for atp and wta
-make_stan_data <- function(data, win, player0, player1){
+The parameters are used in the stan model:
+  *n: is the N trials 
+  *y: is the number of success which is the number of times that player0 has won the match in this case. 
+  *`lambda`: is the latent variable, representing the ability of a player and had estimated from standard normal distribution. 
+  *$$h2h_{player_i,player_j}$$: is a matrix which assigns the upper triangular values using draws around a shared normal distribution. The lower triangular are the same effects of opposite sign. So basically there is a shared effect for player i, j but it adds or subtracts depending on the order of player and which player we are predicting the chance of a win for. 
   
-  players <- unique(c(data[,player0], data[,player1]))
+  * `p1_win`: is given chance of success which is evaluated from the Bradley Terry Model where is simply calculated by `lamdba(player1)-lambda(player1)` but it still need to consider with head-to-head effect between these two players, so the final function for estimating the probability of player1 winning is shown as below:
+  
+$$\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0}$$
+- `vb` function: is used variational inference for approximately posterior distribution. In this case,using VB testing for examining the result whether the model construction and diagnostics is reasonable approximation or not. It can also minimize the difference between actual distribution and approximation distribution and reduce the time consumption, which is a more effective and less uncertain method for checking the Stan model correctly.
+
+**Model output analysis:**
+
+
+```{r stan-data-function}
+#set up the stan model data for atp and wta
+make_stan_data <- function(data, win, n, player0, player1){
+  
+  players <- unique(c(data[[player0]], data[[player1]]))
   index <- order(players)
   names(index) <- players
   
   model_data  = list(
     index = index,
-    y = data[,win],
+    y = data[[win]],
+    n = data[[n]],
     player0_indexes = index[data$player0],
     player1_indexes = index[data$player1],
     N_total = nrow(data),
@@ -561,16 +549,28 @@ make_stan_data <- function(data, win, player0, player1){
   )
 }
 
-atp_stan<-atp_top_100%>%
-  select(player0,player1)%>%
-  mutate(y=as.numeric(0))
-wta_stan<-wta_top_100%>%
-  select(player0,player1)%>%
-  mutate(y=as.numeric(0))
 
-model_data_atp <- make_stan_data(atp_stan, "y", "player0", "player1")
-model_data_wta <- make_stan_data(wta_stan, "y", "player0", "player1")
+atp_stan<-atp_match%>%
+  rename(n=total_count,y=p0_count)%>%
+  mutate(player0=as.character(Player0),
+         player1=as.character(Player1))%>%
+  select(player0,player1,n,y)
 
+wta_stan<-wta_match%>%
+  rename(n=total_count,y=p0_count)%>%
+  mutate(player0=as.character(Player0),
+         player1=as.character(Player1))%>%
+  select(player0,player1,n,y)
+
+
+model_data_atp <- make_stan_data(atp_stan, "y", "n", "player0", "player1")
+model_data_wta <- make_stan_data(wta_stan, "y", "n", "player0", "player1")
+
+```
+
+```{r stan-model,eval=FALSE}
+
+model <- rstan::stan_model("bpc_h2h_pred.stan")
 
 # Use VB for testing/ VB for model testing/development
 atp_fit_model <- rstan::vb(model, 
@@ -580,7 +580,7 @@ wta_fit_model <- rstan::vb(model,
                            data = model_data_wta,
                            tol_rel_obj = 0.001)
 # Use Sampling for testing
-atp_fit <- rstan::sampling(model, 
+atp_stan <- rstan::sampling(model, 
                            data = model_data_atp)
 
 wta_fit <- rstan::sampling(model, 
@@ -592,14 +592,14 @@ atp_fit_summary <- summary(atp_fit)$summary %>%
   mutate(variable = rownames(.)) %>% 
   select(variable, everything()) %>% 
   as_data_frame()
-# write_csv(atp_fit_summary,"atp_sampling.csv")
+#write_csv(atp_fit_summary,"atp_sampling.csv")
 
 wta_fit_summary <- summary(wta_fit)$summary %>% 
   as.data.frame() %>% 
   mutate(variable = rownames(.)) %>% 
   select(variable, everything()) %>% 
   as_data_frame()
-# write_csv(wta_fit_summary,"wta_sampling.csv")
+#write_csv(wta_fit_summary,"wta_sampling.csv")
 ```
 
 ### Parameter diagnostics
@@ -607,8 +607,8 @@ wta_fit_summary <- summary(wta_fit)$summary %>%
 ```{r check-diagnostics}
 
 #constructed the summary statistics for atp or wta stan model
-atp_fit<-read.csv(here("data/atp_sampling.csv"))
-wta_fit<-read.csv(here("data/wta_sampling.csv"))
+atp_fit<-read.csv(here("Match-prediction/atp_sampling.csv"))
+wta_fit<-read.csv(here("Match-prediction/wta_sampling.csv"))
 
 atp_fit %>% 
   ggplot(aes(n_eff)) + 
@@ -653,29 +653,6 @@ wta_fit %>%
 ```
 
 
-
-```{r bpc-BT-model}
-library(bpcs)
-library(cmdstanr)
-mod1 <- bpc(data = bpcs_sample,
-          player0 = 'player1',
-          player1 = 'player2',
-         player0_score = "p1_count",
-         player1_score = "p2_count",
-          model_type = 'bt',
-         solve_ties = 'random',
-           priors = list(prior_lambda_std = 2.0),
-            iter = 3000)
-mod2 <- bpc(data = bpcs_sample,
-          player0 = 'player1',
-          player1 = 'player2',
-         player0_score = "p1_count",
-         player1_score = "p2_count",
-          model_type = 'davidson',
-          solve_ties = 'none', #there are no ties
-          priors = list(prior_lambda_std = 2.0),
-            iter = 3000)
-```
 
 Extract summary statistics on each model parameter:
 
@@ -722,7 +699,10 @@ atp_h2h%>%
   filter(player0_rank<player1_rank&mean<0)%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
   DT::datatable(options = list(pageLength = 10),filter = 'top')
-  
+atp_h2h%>%
+  filter(mean<0)%>%
+  select(id0,id1,player0,player1,mean,player0_rank,player1_rank)%>%
+  arrange(desc(-mean))
 ```
 
 From the table above in the `atp_fit`, by filtering the negative mean value of h2h effects which is corresponded to a player who is disadvantaged (lower win chance) than their ability, and the rank of player0s is lower than player1s, it could evaluate the head-to-head effects between higher ranked players and lower ranked players. The largest negative is -0.27 between Dominic Thiem and David Goffin, where Dominic has lower win chance in their matches. On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille. Generally speaking, the higher ranked players have a better level of tennis skill or more talented whereas they are also likely to suffer failure when facing specific opponents,like Dominic Thiem against Kevin Anderson, who are more than 90 places apart in the rankings and the h2h effect with -0.177 shows Dominic has disadvantage with Kevin. It is obviously that Roberto Bautista Agut, Adrian Mannarino,Jeremy Chardy and Borna Coric have all appeared twice in the top 10 head-to-head effects, with Jeremy being the only person to be favored whereas Roberto being the only one to be disadvantage in both cases.
@@ -758,9 +738,43 @@ wta_h2h%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
   arrange(desc(-mean))%>%
   DT::datatable(options = list(pageLength = 10),filter = 'top')
+wta_h2h%>%
+  filter(mean<0)%>%
+  select(id0,id1,player0,player1,mean)%>%
+  arrange(desc(-mean))
 ```
 
 Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players occurr multiple times in the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
+
+
+```{r}
+atp_stan%>%
+  select(player0,player1,n,y)%>%
+  rename(p0_count=y,total_count=n)%>%
+  mutate(p0_pro=p0_count/total_count)%>%
+  cbind(atp_fit%>%
+  filter(str_detect(variable,"y_pred"))%>%
+  select(mean))%>%
+    mutate(y_pred=mean/total_count)->atp_stan_pred
+
+
+bins(atp_stan_pred)->atp_stan_bins
+
+bin_freq(atp_stan_bins)->atp_stan_freq
+
+atp_stan_freq%>%
+  left_join(atp_stan_bins%>%
+  group_by(bins)%>%
+  summarise(mean_act=sum(p0_count)/sum(total_count)))->atp_stan_cali
+
+
+ggplot(atp_stan_cali,aes(mean_act,mean_pred))+
+  geom_line()+
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_bw() 
+
+```
 
 
 **Mixed effect model in Stain (Surface random effect ): **
