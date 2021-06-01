@@ -59,10 +59,11 @@ model {
     // calculate the probability of winner
     real p1_win = calculate_win(i, player1_indexes, player0_indexes, lambda, h2h);
     target += binomial_lpmf(y[i]|n[i],p1_win);
-    // y ~ bernoulli(p1_win)
-    // The log Bernoulli probability mass of y given chance of success 
-    // y ~ bernoulli(theta) 
-    // Increment target log probability density with bernoulli_lpmf( y | theta) dropping constant additive terms
+    // y ~ binomial(n,p1_win)
+    // The log binomial probability mass of n successes in N trials given chance of success theta
+    // y ~ binomial(N, theta)
+    // Increment target log probability density with binomial_lpmf( n | N, theta) dropping constant additive terms.
+
   }
 }
 generated quantities {
@@ -74,7 +75,7 @@ generated quantities {
     real p1_win = calculate_win(i, player1_indexes, player0_indexes, lambda, h2h);
     y_pred[i]=binomial_rng(n[i],p1_win);
     
-    // y_prep[i] = bernoulli_rng(p1_win);
-    // Generate a Bernoulli variate with chance of success theta; may only be used in transformed data and generated quantities blocks. 
+    // y_prep~binomial(n,p1_win);
+    // Generate a binomial variate with N trials and chance of success theta
   }
 }
