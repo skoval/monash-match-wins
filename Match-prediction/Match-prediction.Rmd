@@ -78,13 +78,13 @@ The main objective of the project is to develop and evaluate different approache
 
 
 There are two data sets such as `atp_results` and `wta_results`used on this analysis report, and the two data sets consist of approximately 36,000 matches information from 2011-01-01 to 2020-01-23 in ATP tour and WTA tour. Both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures. 
-The table \@ref(tab:data-structure) summarises the key information which is contained about each match in the data. The data sets also contain further side information such as player id, date of tennis tournments, Name of the match, the around in tennis match and ect. The full list is omitted as none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project. Theoretically, the full data sets should be used for data modeling but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem.
+The table \@ref(tab:data-structure) summarises the key information which is contained about each match in the data. The data sets also contain further side information such as player id, date of tennis tournaments, Name of the match, the around in tennis match and ect. The full list is omitted as none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project. Theoretically, the full data sets should be used for data modeling but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem.
 
 
 ```{r datstructure, warning=FALSE, message=FALSE}
 data <- data.frame(
   Variable = c("Surface","Player1","Player2","Tier"),
-  Description = c("Match Surface","Match Winner","Match Loser","collective term referring to the group of matches or rubbers played between two teams in a team tennis even" ))
+  Description = c("Match Surface","Match Winner","Match Loser","Collective term referring to the group of matches or rubbers played between two teams in a team tennis even" ))
 
 data %>%
   kable(caption = "Key match informatiom") %>%
@@ -251,7 +251,7 @@ In the following section, a variety of prediction methods will be introduced for
 
 # Modeling section
 
-The model analysis was conducted to identify different forecasting methods for tennis match result. The majority of approaches to tennis match prediction fall into two categories: simple pair comparison models and Bayesian Paired Comparison models in Stan.
+The main approaches to tennis match prediction in this project fall into two categories: simple pair comparison models and Bayesian Paired Comparison models in Stan. This section provides part of the technical description for models trained during this project.
 
 ## Pairwise Comparison Models
 
@@ -290,7 +290,7 @@ $$P(D|w)=\prod_{i = 1}^{N} P(r^i|w)$$
 
 Moreover, for the prediction with new match $$r^{n+1}$$,it can be made by taking the expectation of $$P(r^{n+1}|w)$$ with respect to the posterior distribution P(w|D). One of the common method to achieve the predicted value is used an approximate inference technique to approximate the full posterior distribution. In this case, it refers to Bayesian approach. 
 
-Applying Bayesian method[@peterspredicting] in Bradley Terry Model, the extension formula is shown as below:
+Applying Bayesian method in Bradley Terry Model[@peterspredicting], the extension formula is shown as below:
 
 $$\mathrm{P}(\left[ i \mbox{ beats } j \right])=P(r_{ij}=1|\lambda_{i},\lambda_{j})=\frac{exp(\lambda_{i})}{exp(\lambda_{i})+exp(\lambda_{j})}=\frac{1}{1+e^{-(\lambda_{i}-\lambda_{j})}}=\sigma(\lambda_{i}-\lambda_{j}) $$
 
@@ -301,9 +301,9 @@ $$P(D|\lambda)=\prod_{i = 1}^{N} \sigma(\lambda_{a}^i-\lambda_{b}^i)$$
 
 In this project, the $$\lambda$$ will be estimated as the prior probability with standard normal distribution ($$\lambda_{std} \sim N(0,1)$$;$$\lambda \sim N(0,\lambda_{std}^2)$$ and then added the observed match outcomes constantly to evaluate if the model strengthens or weakens the prior probability, so that the estimated posterior probability which will bet closer to actual value. After revising the posterior probabilities, the next match predictive outcome $$P(r^{n+1}_{ij}=1|w)$$ will be inferred as: $$\sigma(\lambda_{i}-\lambda_{j})$$ through posterior predictive distribution with Maximum a posteriori estimation(MAP) if given the previous matches data $$r^n_{ij}$$
 
-**Mixed effect model in Stain (Surface random effect ): **
+**Mixed effect model in Stan (Surface random effect ): **
 
-Böckenholt (2001) decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
+Böckenholt (2001)[@bockenholt2001hierarchical] decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $$\lambda_{i,s}$$ and $$\lambda_{j,s}$$ estimates the average log ability of the player. The random effects term is represented by $$U_{i,s}$$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
 $$\mathrm{Pr}\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i,s})}{exp(\lambda_{i,s})+exp(\lambda_{j,s})}$$;
 $$\lambda_{i,s}=\lambda_{i}+U_{i,s}$$;
 
@@ -312,7 +312,7 @@ $$ \lambda_{i} \sim N(0,\sigma_{\lambda}^2),[Prior]$$;
 $$ U_{i,s} \sim N(0,U_{std}^2),[Prior]$$;
 $$ U_{std} \sim N(0,\sigma_{U}^2),[Prior]$$
 
-In this case, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field. Moreover,the parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
+In this report, $$s$$ represents different types of surface so $$U_{std}$$ represents the standard deviation in the random effects and the difference between subjects. Therefore, the surface variable should be the random intercept as the grouped variables to evaluate the ability of each players within different surfaces. By doing this way, added the surface as a benchmark to represent the matches in which each pair players on different field. Moreover,the parameters $$ \lambda_{i}$$ can be used to rank the different players. However, in the Bayesian framework, a single measure is not obtained but rather a posterior distribution of the parameters $$ \lambda_{i}$$. By sampling from the posterior distribution of the log-abilities of the players, it is possible to create a posterior distribution of the ranks of the players, which helps to evaluate the uncertainty in the ranking system.
 
 
 # Impelementation
@@ -471,8 +471,9 @@ $$\frac{e^{\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0}}}{1+e^{\lam
 
   *`generated quantities`: created a new vector for predictive value via binomial distribution
   
-- `vb` function: is used variational inference for finding optimal posterior distribution. In this case,using VB testing for examining the result whether the model construction and diagnostics is reasonable approximation or not. It can also minimize the difference between actual distribution and approximation distribution and reduce the time consumption, which is a more effective and less uncertain method for checking the Stan model correctly.
-- `sampling` function: computes posterior samples via MCMC(Markov Chain Monte Carlo) method given a model previously compiled from `stan_model` (bpc_h2h_pred.stan). In this case, it is more reliable way for final inferences to find the posterior probability.
+- `vb` function: is used variational inference for finding optimal posterior distribution. In this case,using VB testing to examine the result whether the model construction and diagnostics is reasonable approximation or not. It can also minimize the difference between actual distribution and approximation distribution and reduce the time consumption, which is a more effective and less uncertain method for checking the Stan model correctly.
+
+- `sampling` function: computes posterior samples via MCMC(Markov Chain Monte Carlo) method given a model previously compiled from `stan_model` (bpc_h2h_pred.stan). In this case, it is a more reliable way to find the posterior probability by final inferences.
 
 
 
@@ -630,7 +631,15 @@ ggarrange(h2h1,h2h2,font.label = list(size=5,face="plain"))
 
 - 2. H2H effect in ATP data:
 
-By filtering the negative mean value of h2h effects which is corresponded to a player who is disadvantaged or has lower win chance against with their opponent, the table \@ref(tab:h2h-atp) shows the head-to-head effects in different pair and ranked players. The largest negative is -0.27 between Dominic Thiem and David Goffin, where Dominic has lower win chance in their matches. On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille. Generally speaking, the higher ranked players have a better level of tennis skill or more talented whereas they are also likely to suffer failure when facing specific opponents,like Dominic Thiem against Kevin Anderson, who are more than 90 places apart in the rankings and the h2h effect with -0.177 shows Dominic has disadvantage with Kevin. It is obviously that Roberto Bautista Agut, Adrian Mannarino,Jeremy Chardy and Borna Coric have all appeared twice in the top 10 head-to-head effects, with Jeremy being the only person to be favored whereas Roberto being the only one to be disadvantage in both cases.
+By filtering the negative mean value of h2h effects which is corresponded to a player(player1) who is disadvantaged or has lower win chance against with their opponent(player0), the table \@ref(tab:h2h-atp) shows the head-to-head effects in different pair and ranked players. The largest h2h effect is 0.26 between Dominic Thiem and David Goffin, where Dominic has lower win chance in their matches. In fact, These two have faced each other 9 times in their career with David leading 7 to 2 based on the historical data. However, Dominic is ranked higher than David and Elo rating shows that the point difference between these two players was over 100 with Dominic ahead which means implies that the favorite has a 64% chance of winning[@vaughan2021well]. It is surprisingly observed the result that David's advantage over Dominic is lopsided even though considering the player's ranking and Elo rating board. 
+
+The another similar situation happened between Stan Wawrinka and Marin Cilic, who exist the second largest matchup effects. In the last ten years, Wawrinka has won all the matches when they have faced each other 7 times overall. It is worth noting that Wawrinka's ranking is higher than Cilic now but Cilic was surpassed Warinka in the ATP tour ranking in 2016,2017 and the difference was significant especially in 2018.
+
+Generally speaking, the higher ranked players trend to have better level of tennis skills or more talented whereas they are also likely to suffer failure when facing specific opponents,like Gilles Simon against Gael Monfils, who are more than 50 places apart in the rankings and the h2h effect with 0.25 shows Gilles has got a 25% boost on his odds when facing Monfils. So it is not surprising that Gilles won 6 out of 8 matches with Monfils. 
+
+On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille whose ranking is No.56 and No.85. Also,in the 100 biggest head-to-head effects,Lucas Pouille as the most frequently occurring in the beneficiary side of the player,having the benefit of the matchup class for 6 times, with the biggest edge being over Richard Gasquet. And Roberto Bautista Agut features 8 times in the top 100 overall, three of which were in the 10 biggest matchup effects. Roberto has disadvantaged with Fabio Fognini and Milos Raonic but had a better chance of winning when facing with Benoit Paire.
+
+Roger Federer and Rafael Nadal are widely regarded as the two greatest tennis players of all the time and the rivalry between them is considered as a modern-day tennis rivalry,also known as Federer–Nadal rivalry [@bodo2010clay]. Even though the head-to-head effect between them gives 2% boost to Nadal which is not significant, it still can explain the some facts that Nadal won 9 of 16 matches over Federer and he had won 4 times over Federer in Clay in the 4 matches as well. Moreover, the Clay Elo rating of Nadal was higher than Federer in the last decay,implying that Nadal is more capable than Federer especially when the match takes place in Clay, which may explain the matchup effects.
 
 ```{r h2h-atp,fig.cap="Head-to-head effect for each pair of players in ATP data"}
 atp_players <- unique(c(atp_stan_data$player0, atp_stan_data$player1))
@@ -659,28 +668,30 @@ atp_fit%>%
               select(Ranking,Player),by=c("player1"="Player"))%>%
   rename(player0_rank=Ranking.x,
          player1_rank=Ranking.y)->atp_h2h
+
+
 atp_h2h%>%
-  filter(mean<0)%>%
+  filter(mean>0)%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
-  DT::datatable(options = list(pageLength = 10),filter = 'top')
-atp_h2h%>%
-  filter(mean<0)%>%
-  select(id0,id1,player0,player1,mean,player0_rank,player1_rank)%>%
-  arrange(desc(-mean))
+  arrange(desc(mean))%>%
+  DT::datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = 'The head-to-head effect in different pair of players in ATP')
+
 ```
 
+- 3. H2H effect in WTA data:
 
+Table \@ref(tab:h2h-wta) represents the head-to-head effects between each pair of player from WTA model and the bigger the number, the more favorable for player0, that is, the greater the chance of winning the game.
 
-```{r h2h-wta}
-wta_players <- unique(c(wta_stan$player0, wta_stan$player1))
+```{r h2h-wta,fig.cap="Head-to-head effect for each pair of players in WTA data"}
+wta_players <- unique(c(wta_stan_data$player0, wta_stan_data$player1))
 wta_index <- order(wta_players)
 cbind(wta_players,wta_index)%>%
   as.data.frame()->wta_players
-wta_stan%>%
+wta_stan_data%>%
   left_join(wta_players,by=c("player0"="wta_players"))%>%
   left_join(wta_players,by=c("player1"="wta_players"))%>%
   rename(player0_id=wta_index.x,
-         player1_id=wta_index.y)->wta_stan
+         player1_id=wta_index.y)->wta_stan_data
 
 wta_fit%>%
   filter(str_detect(variable,"h2h\\["))%>%
@@ -698,47 +709,38 @@ wta_fit%>%
   rename(player0_rank=RANK.x,
          player1_rank=RANK.y)->wta_h2h
 wta_h2h%>%
-  filter(player0_rank<player1_rank&mean<0)%>%
+  filter(mean>0)%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
-  arrange(desc(-mean))%>%
-  DT::datatable(options = list(pageLength = 10),filter = 'top')
+  arrange(desc(mean))%>%
+  DT::datatable(options = list(pageLength = 10),filter = 'top',caption = 'The head-to-head effect in different pair of players in WTA')
+
 wta_h2h%>%
-  filter(mean<0)%>%
-  select(id0,id1,player0,player1,mean)%>%
-  arrange(desc(-mean))
+  filter(mean>0)%>%
+  select(id0,id1,player0,player1,mean,player0_rank,player1_rank)%>%
+  arrange(desc(mean))
+
+wta_h2h%>%
+  filter(mean>0)%>%
+  arrange(desc(mean))%>%
+  head(100)%>%
+  group_by(id0)%>%
+  tally()%>%
+  arrange(-n)%>%
+  filter(n>2)%>%
+  rbind(wta_h2h%>%
+  filter(mean>0)%>%
+  arrange(desc(mean))%>%
+  head(100)%>%
+  group_by(id1)%>%
+  tally()%>%
+  arrange(-n)%>%
+    filter(n>2))
+
+
 ```
 
 Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players occurr multiple times in the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
 
-
-```{r}
-atp_stan%>%
-  select(player0,player1,n,y)%>%
-  rename(p0_count=y,total_count=n)%>%
-  mutate(p0_pro=p0_count/total_count)%>%
-  cbind(atp_fit%>%
-  filter(str_detect(variable,"y_pred"))%>%
-  select(mean))%>%
-    mutate(y_pred=mean/total_count)->atp_stan_pred
-
-
-bins(atp_stan_pred)->atp_stan_bins
-
-bin_freq(atp_stan_bins)->atp_stan_freq
-
-atp_stan_freq%>%
-  left_join(atp_stan_bins%>%
-  group_by(bins)%>%
-  summarise(mean_act=sum(p0_count)/sum(total_count)))->atp_stan_cali
-
-
-ggplot(atp_stan_cali,aes(mean_act,mean_pred))+
-  geom_line()+
-  geom_abline(slope = 1, intercept = 0, linetype = 2) +
-  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
-  theme_bw() 
-
-```
 
 
 **Mixed effect model in Stain (Surface random effect ): **
@@ -769,12 +771,20 @@ wta_random <- bpc(data = wta_top_surface,
           result_column = 'y',
           model_type = 'bt-U',
          cluster = 'Surface',
-          solve_ties = 'none', #there are no ties
-          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
+          solve_ties = 'none', 
+            iter = 3000)
+
+atp_random_no_prior <- bpc(data = atp_top_surface,
+          player0 = 'player0',
+          player1 = 'player1',
+          result_column = 'y',
+          model_type = 'bt-U',
+         cluster = 'Surface',
+          solve_ties = 'none',
             iter = 3000)
 # write_csv(atp_random$hpdi,"atp_hpi.csv")
 # write_csv(atp_random$lookup_table,"atp_lookup_table.csv")
-#saveRDS(wta_random,"wta_random.rds")
+#saveRDS(atp_random_no_prior,"atp_random_no_prior.rds")
 ```
 
 
@@ -956,3 +966,34 @@ ggplot(wta_cali,aes(mean_act,mean_pred))+
 
 ```
 
+
+##Bayesian paired comparison model
+
+### Head-to-head effect
+```{r}
+atp_stan_data%>%
+  select(player0,player1,n,y)%>%
+  rename(p1_count=y,total_count=n)%>%
+  cbind(atp_fit%>%
+  filter(str_detect(variable,"y_pred"))%>%
+  select(mean)%>%
+    rename(p1_pred=mean))%>%
+    mutate(y_pred=p1_pred/total_count)->atp_stan_pred
+
+bins(atp_stan_pred)->atp_stan_bins
+
+bin_freq(atp_stan_bins)->atp_stan_freq
+
+atp_stan_freq%>%
+  left_join(atp_stan_bins%>%
+  group_by(bins)%>%
+  summarise(mean_act=sum(p1_count)/sum(total_count)))->atp_stan_cali
+atp_stan_cali
+
+ggplot(atp_stan_cali,aes(mean_act,mean_pred))+
+  geom_line()+
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_bw() 
+
+```
