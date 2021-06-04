@@ -46,6 +46,7 @@ library(rvest)
 library(rstan)
 library(bayesplot)
 library(ggpubr)
+library(DT)
 ```
 
 
@@ -345,8 +346,14 @@ wta_rankings <- html_node(wta_html, "table") %>% html_table(fill=TRUE)
 wta_rankings <- wta_rankings %>% 
   janitor::remove_empty() %>% 
   as_tibble()%>%
-  head(100)
-
+  select(RANK,PLAYER)
+PLAYER<-c("Marta Kostyuk","Varvara Gracheva")
+RANK<-c(80,89)
+wta_rankings%>%
+  head(98)%>%
+  rbind(cbind(RANK,PLAYER))%>%
+  mutate(RANK=as.numeric(RANK))%>%
+  arrange(RANK)->wta_rankings
 ```
 
 ```{r subset-top-100-players}
@@ -386,6 +393,7 @@ h2h_count(wta_top_100,player0,player1)%>%
 ## Bradley Terry Model Evaluation
 
 
+
 ```{r simple-BT-model}
 #the coefficients are maximum likelihood estimates of lambda n with lambda1( the log-ability for Adrian Mannarino) set to zero as identifying convention
 
@@ -397,20 +405,23 @@ wta_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=wt
 ```
 
 **Modeling process:**
+
+The simple Bradley Terry Model is implemented by the `BradleyTerry2` package. There are two main functions used in this project:
+
 - `BTm` function: constructs the Bradley Terry model with the matrix of p0_count and p1_count from the top 100 players data
 
 - `BTabilities` function:  computes the ability of each player from the model objects against with the baseline player.
 
 **Model output analysis:**
 
-* Ability graph interpretation:
+- Ability table interpretation:
 
-From the table \@ref(tab:estimated-ability), Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data as their ability are 0. In the ATP data,Novak Djokovic,Rafael Nadal and Roger Federer have the highest estimated ability compared with the Adrian Mannarino. All three of them have played and won most of matches and their ranking almost maintain in the top 10 of the world on average, indicating that their tennis level are higher than other players. On the contrary, Lorenzo Musetti and Sebastian Korda have the lowest estimated ability and one of reason for that they have only played one game and even lost in that match,so their ability are estimated quite lower. 
+From the table \@ref(tab:ATP-ability) and \@ref(tab:WTA-ability), Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data as their ability are 0. In the ATP data,Novak Djokovic,Rafael Nadal and Roger Federer have the highest estimated ability compared with the Adrian Mannarino. All three of them have played and won most of matches and their ranking almost maintain in the top 10 of the world on average, indicating that their tennis level are higher than other players. On the contrary, Lorenzo Musetti and Sebastian Korda have the lowest estimated ability and one of reason for that they have only played one game and even lost in that match,so their ability are estimated quite lower. 
 
 Similarly, in the WTA model,Serena Williams have the highest estimated tennis skill whereas Clara Tauson have the lowest estimated tennis ability compared with Ajla. That could be caused by the fact that Serena won the most of matches like more than 50 matches based on the data and Clara only had played two matches but she lost both of them. 
 
 
-```{r estimated-ability,fig.cap="The estimated ability of different tennis players"}
+```{r ATP-ability,fig.cap="The estimated ability of different tennis players in ATP"}
 # construct the coefficient data frame and read the coeffienct in convenient way
 atp_abilities <- BTabilities(atp_bt) # Matrix of ability and StdErr
 
@@ -424,7 +435,13 @@ atp_abilities$Player <- factor(atp_abilities$Player,
                         levels = atp_abilities$Player[order(atp_abilities$Ability)],
                         order = T)
 
-wta_abilities <- BTabilities(wta_bt) # Matrix of ability and StdErr
+atp_abilities%>%
+  datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for ATP data')%>%
+  formatRound(columns=c('Ability', 'SE'), digits=4)
+```
+
+```{r WTA-ability,fig.cap="The estimated ability of different tennis players in WTA"}
+ta_abilities <- BTabilities(wta_bt) # Matrix of ability and StdErr
 
 wta_abilities <- data.frame(
   Player = rownames(wta_abilities),
@@ -435,12 +452,9 @@ wta_abilities <- data.frame(
 wta_abilities$Player <- factor(wta_abilities$Player, 
                         levels = wta_abilities$Player[order(wta_abilities$Ability)],
                         order = T)
-
-atp_abilities%>%
-  DT::datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for ATP data')
-
 wta_abilities%>%
-   DT::datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for WTA data')
+   datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for WTA data')%>%
+   formatRound(columns=c('Ability', 'SE'), digits=4)
   
   # DT::datatable(options = list(pageLength = 10),filter = 'top', rownames = FALSE,caption = htmltools::tags$caption(
   #   style = 'caption-side: bottom; text-align: center;',
@@ -510,13 +524,15 @@ wta_stan_data<-wta_match%>%
   select(player0,player1,n,y)
 
 
-model_data_atp <- make_stan_data(atp_stan_data, "y", "n", "player0", "player1")
-model_data_wta <- make_stan_data(wta_stan_data, "y", "n", "player0", "player1")
 
 ```
 
 ```{r stan-model,eval=FALSE}
 
+model_data_atp <- make_stan_data(atp_stan_data, "y", "n", "player0", "player1")
+model_data_wta <- make_stan_data(wta_stan_data, "y", "n", "player0", "player1")
+
+#compile the model
 model <- rstan::stan_model("bpc_h2h_pred.stan")
 
 # VB for model testing/development
@@ -529,7 +545,7 @@ wta_fit_model <- rstan::vb(model,
 # Use Sampling for final inference
 atp_stan <- rstan::sampling(model, 
                            data = model_data_atp)
-#saveRDS(wta_stan,"wta_stan.rds")
+#saveRDS(wta_stan,"wta.rds")
 wta_stan <- rstan::sampling(model, 
                            data = model_data_wta)
 
@@ -546,7 +562,7 @@ wta_fit_summary <- summary(wta_stan)$summary %>%
   mutate(variable = rownames(.)) %>% 
   select(variable, everything()) %>% 
   as_data_frame()
-#write_csv(wta_fit_summary,"wta_stan.csv")
+#write_csv(wta_fit_summary,"wta_stan_fit.csv")
 ```
 
 *Model output analysis:*
@@ -566,8 +582,8 @@ To examine the model fitting, the MCMC parameter diagnostics should be built up 
 ```{r check-neff,fig.cap="Evalute effective sample size in stan model"}
 
 #constructed the summary statistics for atp or wta stan model
-atp_fit<-read.csv(here("Match-prediction/atp_stan.csv"))
-wta_fit<-read.csv(here("Match-prediction/wta_stan.csv"))
+atp_fit<-read.csv(here("data/atp_stan.csv"))
+wta_fit<-read.csv(here("data/wta_stan.csv"))
 
 N<-4000
 atp_neff_ratios<-atp_fit$n_eff/N
@@ -591,7 +607,7 @@ wta_rhats<-wta_fit$Rhat
 rhat1<-mcmc_rhat_hist(atp_rhats,binwidth = 0.0005)+
   ggtitle("ATP stan model")
 
-rhat2<-mcmc_rhat_hist(wta_rhats,binwidth = 0.001)+
+rhat2<-mcmc_rhat_hist(wta_rhats,binwidth = 0.0005)+
   ggtitle("WTA stan model")
 
 ggarrange(rhat1,rhat2, common.legend = TRUE, legend="bottom",font.label = list(size=5,face="plain"))
@@ -639,7 +655,7 @@ Generally speaking, the higher ranked players trend to have better level of tenn
 
 On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille whose ranking is No.56 and No.85. Also,in the 100 biggest head-to-head effects,Lucas Pouille as the most frequently occurring in the beneficiary side of the player,having the benefit of the matchup class for 6 times, with the biggest edge being over Richard Gasquet. And Roberto Bautista Agut features 8 times in the top 100 overall, three of which were in the 10 biggest matchup effects. Roberto has disadvantaged with Fabio Fognini and Milos Raonic but had a better chance of winning when facing with Benoit Paire.
 
-Roger Federer and Rafael Nadal are widely regarded as the two greatest tennis players of all the time and the rivalry between them is considered as a modern-day tennis rivalry,also known as Federer–Nadal rivalry [@bodo2010clay]. Even though the head-to-head effect between them gives 2% boost to Nadal which is not significant, it still can explain the some facts that Nadal won 9 of 16 matches over Federer and he had won 4 times over Federer in Clay in the 4 matches as well. Moreover, the Clay Elo rating of Nadal was higher than Federer in the last decay,implying that Nadal is more capable than Federer especially when the match takes place in Clay, which may explain the matchup effects.
+Federer and Rafael Nadal are widely regarded as the two greatest tennis players of all the time and the rivalry between them is considered as a modern-day tennis rivalry,also known as the famous Federer–Nadal rivalry [@bodo2010clay]. Even though the head-to-head effect between them gives 2% boost to Nadal which is not significant, it still can explain the some facts that Nadal won 9 of 16 matches over Federer and he had won 4 times over Federer in Clay in the 4 matches as well. Moreover, the Clay Elo rating of Nadal was higher than Federer in the last decay,implying that Nadal is more capable than Federer especially when the match takes place in Clay, which may explain the matchup effects. Moreover, Nadal have occurred 5 times as the disadvantaged players in the 100 biggest head-to-head effects,which is the most.  
 
 ```{r h2h-atp,fig.cap="Head-to-head effect for each pair of players in ATP data"}
 atp_players <- unique(c(atp_stan_data$player0, atp_stan_data$player1))
@@ -674,13 +690,21 @@ atp_h2h%>%
   filter(mean>0)%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
   arrange(desc(mean))%>%
-  DT::datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = 'The head-to-head effect in different pair of players in ATP')
+  datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = 'The head-to-head effect in different pair of players in ATP')%>%
+  formatRound(columns=c('mean'), digits=4)
 
 ```
 
 - 3. H2H effect in WTA data:
 
-Table \@ref(tab:h2h-wta) represents the head-to-head effects between each pair of player from WTA model and the bigger the number, the more favorable for player0, that is, the greater the chance of winning the game.
+Table \@ref(tab:h2h-wta) represents the head-to-head effects between each pair of player from WTA model and the bigger the number, the more favorable for player0, that is, the greater the chance of winning the game. The biggest one is the match between Kirsten Flipkens	and Donna Vekic. They met five times between 2010 and 2020, and Flipkens won the match every time. Donna is higher than Flipkens in the player ranking and Elo rating system, while Flipkens is more favorable when matching with Donna, with 10% improvement on her win odds.
+
+It is interesting to see several players occur multiple times in the top 10 matchup effects. Sloane Stephens,Heather Watson and Caroline Garcia all appear twice among the top 10 biggest head-to-head effects but only Caroline is favor in both sides. Moreover, Heather has the biggest advantage when facing with Stephens which won 4 time in the 6 matches and Misaki Doi is the next one who lost the matches all the time over Heather. Except for Heather, Stephens also has lower chance to win the matches over Johanna Konta. Based on the historical match records, Konta had won all four of their previous matches, all played in the last years. Only once did Stephens win the first games, in the Wimbledon in 2019, tooking the attack with slapping forehand winners cross-court,but Konta still won the match. 
+
+Looking across all of the top 100 head-to-head effect, there are several players who seem to be candidates for clashes of game style with their competitors. Caroline has more potential opportunity to win over Victoria Azarenka and so it is the fact that Caroline always find the way to win the matches when meeting with Azarenke. However, the situation is completely different if Caroline faced with Barbora Strycova. In the last decay, Barbora and Caroline fought each other five times, but Caroline lost all the time. Their ranking look similar and one of reason is to explain that the clashes of games styles between them. Caroline is an offensive baseliner like Azarenka, with consistent and powerful ground strokes, whereas Barobora is an serve-and-volley player, with hitting the first and finishing volley to end the point. The point construction is serve, and it is difficult to return from which to hit a first volley so it may can explain why Caroline would have disadvantage over Barbora.
+
+Another pair of player came out in the 10 biggest matchup effect is probably surprising even eager tennis fans. This head-to-head effect about Elina Svitolina	and Ashleigh Barty,where Elina has more advantageous. Barty is the most popular player in the world and her ranking is the first one now as well. But they met four times before 2020 and Barty lost all the matches. On the other hand, it was memorable that Naomi beats Serena in the chaotic 2018 US Open final and reached her fourth major title match. It is obviously that Naomi has the benefit of matchup effect over Serena from the table data, with 5% on her odds. Although the figure like the 5% improvement on odds is not significant, it can be explained to a certain extent that Naomi has the benefit of matchup effect with Serena.
+
 
 ```{r h2h-wta,fig.cap="Head-to-head effect for each pair of players in WTA data"}
 wta_players <- unique(c(wta_stan_data$player0, wta_stan_data$player1))
@@ -708,44 +732,22 @@ wta_fit%>%
               select(RANK,PLAYER),by=c("player1"="PLAYER"))%>%
   rename(player0_rank=RANK.x,
          player1_rank=RANK.y)->wta_h2h
+
+
 wta_h2h%>%
   filter(mean>0)%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
   arrange(desc(mean))%>%
-  DT::datatable(options = list(pageLength = 10),filter = 'top',caption = 'The head-to-head effect in different pair of players in WTA')
-
-wta_h2h%>%
-  filter(mean>0)%>%
-  select(id0,id1,player0,player1,mean,player0_rank,player1_rank)%>%
-  arrange(desc(mean))
-
-wta_h2h%>%
-  filter(mean>0)%>%
-  arrange(desc(mean))%>%
-  head(100)%>%
-  group_by(id0)%>%
-  tally()%>%
-  arrange(-n)%>%
-  filter(n>2)%>%
-  rbind(wta_h2h%>%
-  filter(mean>0)%>%
-  arrange(desc(mean))%>%
-  head(100)%>%
-  group_by(id1)%>%
-  tally()%>%
-  arrange(-n)%>%
-    filter(n>2))
-
-
+  datatable(options = list(pageLength = 10),filter = 'top',caption = 'The head-to-head effect in different pair of players in WTA')%>%
+   formatRound(columns=c('mean'), digits=4)
 ```
 
-Compared with `atp_fit`, the smallest estimated values of h2h effects in the `wta_fit` is -0.0867 which is not quite lower. In the first 10 pair of players, the rank difference between Petra Kvitova and Madison Brengle is the largest and the estimated h2h effect is only -0.072, suggesting Petra Kvitova has lower chances to win Madison. Also, it is interesting to see several players occurr multiple times in the top 10 matchup effects. Barbora Strycova and Heather Watson occurred twice among the 10 biggest head-to-head effects while Caroline Garcia occurred three times. Moreover, Barbora with her head-to-head over Caroline or Johanna Konta, and Heather with her head-to-head over Sloane Stephens or Caroline are the only two players to be favoured. Another things to be noticed that Caroline was disadvantage with Barbora and Heather but she has higher probability to win Victoria Azarenka whose rank is higher.
 
+#### Random effects in Bradley Terry model 
 
+**Modeling process:**
 
-**Mixed effect model in Stain (Surface random effect ): **
-
-
+- `bpc` function: is from the `bpcs` package which performs Bayesian estimation of Paired Comparison models utilizing Stan. There are three different surface types related to the matches so the `cluster` parameter should select in the surface column as the benchmarks for evaluating the ability of players in different surface. Once adding the random effect in the Bradley Terry model, the model type should become `bt-U`.
 
 ```{r random-effect-model,eval=FALSE}
 atp_top_100%>%
@@ -782,28 +784,27 @@ atp_random_no_prior <- bpc(data = atp_top_surface,
          cluster = 'Surface',
           solve_ties = 'none',
             iter = 3000)
-# write_csv(atp_random$hpdi,"atp_hpi.csv")
-# write_csv(atp_random$lookup_table,"atp_lookup_table.csv")
-#saveRDS(atp_random_no_prior,"atp_random_no_prior.rds")
+#write_csv(wta_random$hpdi,"wta_hpi.csv")
+#write_csv(wta_random$lookup_table,"wta_lookup_table.csv")
+#saveRDS(wta_random,"wta_random.rds")
 ```
+
+```{r}
+
+atp_top_100%>%
+  group_by(Player0, Player1,Surface) %>%
+	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")->atp_sf
+wta_top_100%>%
+  group_by(Player0, Player1,Surface) %>%
+	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")->wta_sf
+```
+
 
 
 ```{r coefficient-atp-random}
 #constructed the summary statstics of bpc function in atp data
 atp_hpi<-read.csv(here("data/atp_hpi.csv"))
-atp_lookup<-read.csv(here("data/atp_lookup_table.csv"))
-
-
-# check the ability of each players
-# A higher lambda indicates a higher team ability
-atp_lookup%>%
-  left_join(atp_rankings%>%
-              select(Player,Ranking),by=c("Names"="Player"))%>%
-  right_join(atp_hpi%>%
-  filter(str_detect(Parameter,"lambda"))%>%
-  separate(Parameter,c("lambda","index"))%>%
-    mutate(index=as.numeric(index)),by=c("Index"="index"))%>%
-  arrange(desc(Mean))
+atp_lookup<-read.csv(here("data/atp_lookup.csv"))
 
 
 # check the random effect coefficient with different players in hard surface
@@ -817,7 +818,9 @@ atp_lookup%>%
   separate(Parameter,c("U1","index","cluster"))%>%
     mutate(index=as.numeric(index))%>%
   filter(cluster=="1"),by=c("Index"="index"))%>%
-  arrange(desc(Mean))
+  arrange(desc(Mean))%>%
+  mutate(Surface=paste("Hard"))%>%
+  select(Names,Ranking,Mean,Surface)->atp_hard
 
 # check the random effect coefficient with different players in clay surface
 atp_lookup%>%
@@ -828,7 +831,9 @@ atp_lookup%>%
   separate(Parameter,c("U1","index","cluster"))%>%
     mutate(index=as.numeric(index))%>%
   filter(cluster=="2"),by=c("Index"="index"))%>%
-  arrange(desc(Mean))
+  arrange(desc(Mean))%>%
+   mutate(Surface=paste("Clay"))%>%
+  select(Names,Ranking,Mean,Surface)->atp_clay
 
 # check the random effect coefficient with different players in grass surface
 atp_lookup%>%
@@ -839,29 +844,85 @@ atp_lookup%>%
   separate(Parameter,c("U1","index","cluster"))%>%
     mutate(index=as.numeric(index))%>%
   filter(cluster=="3"),by=c("Index"="index"))%>%
-  arrange(desc(Mean))
+  arrange(desc(Mean))%>%
+  mutate(Surface=paste("Grass"))%>%
+  select(Names,Ranking,Mean,Surface)->atp_grass
 ```
 
-From the outputs above,it shows the ability of different players and the effect of the particular surface for player's ability. Thus, Novak Djokovic, Rafael Nadal and Roger Federer have the highest lambda value,indicating that these three players have the advanced the tennis skills compared the rest of players. Instead of only evaluating the ability of different players,the random effect with surface type are included in the model for analyzing the effect of different surface types for a player's ability. So there are three clusters such as cluster 1, cluster 2 and cluster 3, representing the hard, clay,and grass surface. In general, Daniil Medvedev has the best tennis ability in the hard court and Dominic Thiem has more advantage in the clay court whereas Marin Cilic is better playing at grass court.
 
-```{r surface-predicted-value,eval=FALSE}
-new_atp<-atp_surface%>%
-  dplyr::select(player0,player1,Surface)
-
-predict(atp_random,type="response",newdata = new_atp)%>%
-  as_tibble()->atp_pred
-cbind(new_atp,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
-  as_tibble())->atp_surface_pred
-#write_csv(atp_surface_pred,"atp_surface_pred.csv")
-
-new_wta<-wta_surface%>%
-  dplyr::select(player0,player1,Surface)
-predict(wta_random,type="response",newdata = new_wta)%>%
-  as_tibble()->wta_pred
-cbind(new_wta,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
-  as_tibble())->wta_surface_pred
-#write_csv(wta_surface_pred,"wta_surface_pred.csv")
+```{r ability-atp-surface,fig.cap="The most higest estimated ability of ATP players in different surface" }
+atp_hard%>%head(10)%>%rbind(atp_clay%>%head(10))%>%
+ rbind(atp_grass%>%head(10))%>%
+  mutate(Surface=as.factor(Surface))%>%
+datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most higest estimated ability of ATP players in different surface" )%>%
+  formatRound(columns=c('Mean'), digits=4)
 ```
+
+**Model output analysis:**
+
+- Ability table with different surface in ATP data :
+
+From the table \@ref(tab:ability-atp-surface),it shows the most highest estimated ability of different players in the particular surface. It is not surprising to see that the estimated ability for Daniil Medvedev is the highest in the Hard court. As the matchup effect table has been shown before, Daniil Medvedev is in the fourth spot who has more potential chance to win over Stefanos Tsitsipas. Looking back the past macth records, Daniil won all four matches in the Hard,which can be reflected that Daniil has advanced tennis skilss in the Hard court. In terms of the estimated players' ability to play, Dominic Thiem	is the highest in the Clay court. Although the head-to-head effect between Dominic and David Goffin is the highest in overall where Dominic would at a disadvantage, Dominic still won 2 matches in the Clay court. Nadal is in the third place in the Clay court and it is not even unexpected at all. One of example can be explained for that is Nadal-Federer rivalry which has been discussed above. For the grass court, the estimated ability for Marin Cilic is the highest. In fact, the grass court favours a serve and volley style of play and Marin is exactly this type of player who serving moves quickly towards the net after hitting a serve or produce an effective returning volley in quick movement. 
+
+
+```{r coefficient-wta-random}
+
+wta_hpi<-read.csv(here("data/wta_hpi.csv"))
+wta_lookup<-read.csv(here("data/wta_lookup.csv"))
+
+wta_lookup%>%
+  left_join(wta_rankings%>%
+              select(PLAYER,RANK),by=c("Names"="PLAYER"))%>%
+  rename(Ranking=RANK)%>%
+  right_join(wta_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="1"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))%>%
+  mutate(Surface=paste("Hard"))%>%
+  select(Names,Ranking,Mean,Surface)->wta_hard
+
+wta_lookup%>%
+  left_join(wta_rankings%>%
+              select(PLAYER,RANK),by=c("Names"="PLAYER"))%>%
+  rename(Ranking=RANK)%>%
+  right_join(wta_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="2"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))%>%
+   mutate(Surface=paste("Clay"))%>%
+  select(Names,Ranking,Mean,Surface)->wta_clay
+
+wta_lookup%>%
+  left_join(wta_rankings%>%
+             select(PLAYER,RANK),by=c("Names"="PLAYER"))%>%
+  rename(Ranking=RANK)%>%
+  right_join(wta_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="3"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))%>%
+  mutate(Surface=paste("Grass"))%>%
+  select(Names,Ranking,Mean,Surface)->wta_grass
+```
+
+
+```{r ability-wta-surface,fig.cap="The most higest estimated ability of WTA players in different surface" }
+wta_hard%>%head(10)%>%rbind(wta_clay%>%head(10))%>%
+ rbind(wta_grass%>%head(10))%>%
+  mutate(Surface=as.factor(Surface))%>%
+datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most higest estimated ability of ATP players in different surface" )%>%
+  formatRound(columns=c('Mean'), digits=4)
+```
+
+- Ability table with different surface in WTA data :
+
+Anastasia has the most advanced tennis ability in the hard court based on the table \@ref(tab:ability-wta-surface). Since Anastasia has played 125 games, almost the most on hard court, and won more than half, Anastasia's ability should be higher. It is worth noting that Naomi and Sabalenka are in the fifth and eighth spot as well,both of them are the top 10 players in the world. In terms of the estimated players' ability to play, Tamara Zidansek is the highest in the clay court. Although Tamara claimed the first title on the pro-level in 2014, she did not have many match records in the model data but it is not hard to evaluate for that Tamara met with other 14 players in the 19 matches and won 15 times among them,indicating that Tamara has advantage in the clay court. Similarly, Kristina Mladenovic	is in the second spot of the top 10 players who has the most advanced skills in the clay court. Kristina won 25 out of 32 matches base on the past records, showing her better performance when playing in the clay court. It is interesting to see the estimated ability in the grass court for Alison Riske is greater than 1, and is also the highest among all players. In fact, Alison played 30 matched in total and won 22 times,so the probability of Alinson win is around 73%,the highest of all players. Barbora Strycova is in the second place in the list, winning 17 of 27 matches with a 63% chance. 
+
 
 
 # Model Evaluation
@@ -996,4 +1057,30 @@ ggplot(atp_stan_cali,aes(mean_act,mean_pred))+
   coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
   theme_bw() 
 
+```
+
+
+```{r surface-predicted-value,eval=FALSE}
+
+y_pp <- posterior_predictive(atp_random)
+y <- y_pp$y%>%
+  as_tibble()
+yrep <- y_pp$y_pred%>%
+  as_tibble()
+new_atp<-atp_top_surface%>%
+  dplyr::select(player0,player1,Surface)
+
+predict(atp_random,type="response",newdata = new_atp)%>%
+  as_tibble()->atp_pred
+cbind(new_atp,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
+  as_tibble())->atp_surface_pred
+#write_csv(atp_surface_pred,"atp_surface_pred.csv")
+
+new_wta<-wta_surface%>%
+  dplyr::select(player0,player1,Surface)
+predict(wta_random,type="response",newdata = new_wta)%>%
+  as_tibble()->wta_pred
+cbind(new_wta,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
+  as_tibble())->wta_surface_pred
+#write_csv(wta_surface_pred,"wta_surface_pred.csv")
 ```
