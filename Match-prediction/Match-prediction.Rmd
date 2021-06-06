@@ -12,6 +12,8 @@ output:
     number_sections: yes
     citation_package: biblatex
     toc: false
+editor_options: 
+  chunk_output_type: inline
 ---
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, cache=TRUE, message=FALSE, warning=FALSE)
@@ -121,7 +123,7 @@ The figure \@ref(fig:atp-most) and the figure \@ref(fig:wta-most) show the male 
 
 ## Evaluating the head to head effect in each tier
 
-```{r}
+```{r order-player-name}
 atp_results%>%
 	dplyr::mutate(
 		Player0 = ifelse(player0 <= player1, player0, player1), # Make player0 first alphabetically
@@ -132,8 +134,10 @@ wta_results%>%
 		Player0 = ifelse(player0 <= player1, player0, player1), # Make player0 first alphabetically
 		Player1 = ifelse(player0 <= player1, player1, player0)
 	) ->wta_results
+```
 
 
+```{r tier-surface-function}
 tier_count<-function(data,player0,player1,Tier){
   data%>%
     dplyr::group_by(player0,player1,Tier)%>%
@@ -360,6 +364,8 @@ atp_results%>%
 wta_results%>%
  select(player0,player1,Surface,Player0,Player1) %>%  
   filter(player0%in%wta_rankings$PLAYER & player1%in%wta_rankings$PLAYER)->wta_top_100
+
+
 h2h_count<-function(data,player0,player1){
   data%>%
     group_by(Player0, Player1) %>%
@@ -756,13 +762,18 @@ Another pair of player came out in the 10 biggest matchup effect is probably sur
 
 - `bpc` function: is from the `bpcs` package which performs Bayesian estimation of Paired Comparison models utilizing Stan. There are three different surface types related to the matches so the `cluster` parameter should select in the surface column as the benchmarks for evaluating the ability of players in different surface. Once adding the random effect in the Bradley Terry model, the model type should become `bt-U`.
 
-```{r random-effect-model,eval=FALSE}
+```{r surface-data}
 atp_top_100%>%
   select(player0,player1,Surface)%>%
   mutate(y=as.numeric(0))->atp_top_surface
 
 wta_top_100%>%select(player0,player1,Surface)%>%
   mutate(y=as.numeric(0))->wta_top_surface
+```
+
+
+
+```{r random-effect-model,eval=FALSE}
 
 atp_random <- bpc(data = atp_top_surface,
           player0 = 'player0',
@@ -770,8 +781,6 @@ atp_random <- bpc(data = atp_top_surface,
           result_column = 'y',
           model_type = 'bt-U',
          cluster = 'Surface',
-          solve_ties = 'none', #there are no ties
-          priors = list(prior_lambda_std = 2.0,prior_U1_std = 10.0),
             iter = 3000)
 
 wta_random <- bpc(data = wta_top_surface,
@@ -780,20 +789,12 @@ wta_random <- bpc(data = wta_top_surface,
           result_column = 'y',
           model_type = 'bt-U',
          cluster = 'Surface',
-          solve_ties = 'none', 
             iter = 3000)
 
-atp_random_no_prior <- bpc(data = atp_top_surface,
-          player0 = 'player0',
-          player1 = 'player1',
-          result_column = 'y',
-          model_type = 'bt-U',
-         cluster = 'Surface',
-          solve_ties = 'none',
-            iter = 3000)
-#write_csv(wta_random$hpdi,"wta_hpi.csv")
-#write_csv(wta_random$lookup_table,"wta_lookup_table.csv")
-#saveRDS(wta_random,"wta_random.rds")
+
+#write_csv(atp_random$hpdi,"atp_hpi.csv")
+#write_csv(atp_random$lookup_table,"atp_lookup_table.csv")
+#saveRDS(wta_random,"wta_sf.rds")
 ```
 
 
@@ -890,6 +891,19 @@ wta_lookup%>%
   arrange(desc(Mean))%>%
   mutate(Surface=paste("Grass"))%>%
   select(Names,Ranking,Mean,Surface)->wta_grass
+
+wta_lookup%>%
+  left_join(wta_rankings%>%
+             select(PLAYER,RANK),by=c("Names"="PLAYER"))%>%
+  rename(Ranking=RANK)%>%
+  right_join(wta_hpi%>%
+  filter(str_detect(Parameter,"U1\\["))%>%
+  separate(Parameter,c("U1","index","cluster"))%>%
+    mutate(index=as.numeric(index))%>%
+  filter(cluster=="4"),by=c("Index"="index"))%>%
+  arrange(desc(Mean))%>%
+  mutate(Surface=paste("Carpet"))%>%
+  select(Names,Ranking,Mean,Surface)->wta_carpet
 ```
 
 **Model output analysis:**
@@ -914,6 +928,7 @@ From the table \@ref(fig:ability-atp-surface),it shows the most highest estimate
 ```{r ability-wta-surface,fig.cap="The most higest estimated ability of WTA players in different surface" }
 wta_hard%>%head(10)%>%rbind(wta_clay%>%head(10))%>%
  rbind(wta_grass%>%head(10))%>%
+  rbind(wta_carpet%>%head(10))%>%
   mutate(Surface=as.factor(Surface))%>%
 datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most higest estimated ability of ATP players in different surface" )%>%
   formatRound(columns=c('Mean'), digits=4)
@@ -944,17 +959,8 @@ A similar way to access the model performance in WTA data. The closest to real p
 
 Although there are differences in each box, the difference is small and can be ignored. Moreover, most of the predicted values in the scatter plot \@ref(fig:cali-bt-plot) fit well with the actual probability. Overall, the model prediction is close to actual winning probability of player 0. 
 
-```{r cali-bt-table,fig.cap="Calibration table with Bradley Terry Model"}
-atp_match%>%
-  cbind(predict(atp_bt,type="response")%>%
-  as_tibble())%>%
-  rename(y_pred=value)%>%
-  mutate(prob_p0=p0_count/total_count)->atp_bt_pred
-wta_match%>%
-  cbind(predict(wta_bt,type="response")%>%
-  as_tibble())%>%
-  rename(y_pred=value)%>%
-  mutate(prob_p0=p0_count/total_count)->wta_bt_pred
+
+```{r bins-function}
 
 bins<-function(data){
   data%>%
@@ -973,18 +979,24 @@ bins<-function(data){
 bin_freq<-function(data){
   data%>%
   group_by(bins)%>%
-  summarise(pred_prob=sum(y_pred))%>%
-  left_join(data%>%
-              group_by(bins)%>%
-              tally())%>%
-  mutate(mean_pred=pred_prob/n)%>%
-  select(bins,mean_pred)%>%
-    ungroup()
+  summarise(mean_pred=sum(y_pred)/n())
 }
+```
+
+```{r cali-bt-table,fig.cap="Calibration table with Bradley Terry Model"}
+atp_match%>%
+  cbind(predict(atp_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->atp_bt_pred
+wta_match%>%
+  cbind(predict(wta_bt,type="response")%>%
+  as_tibble())%>%
+  rename(y_pred=value)%>%
+  mutate(prob_p0=p0_count/total_count)->wta_bt_pred
 
 bins(atp_bt_pred)->atp_bt_bins
 bin_freq(atp_bt_bins)->atp_bt_freq
-
 
 atp_bt_bins%>%
   group_by(bins)%>%
@@ -1051,7 +1063,7 @@ Rather than only visualizing the relationship between expected probability and a
 
 Another point of concern is that the mean predicted probability are zero in both first bins. One of reason is that the number matches between each pair player are almost less than two,in other words, there are more than 100 pairs player who have only met one time with their opponent,indicating that head-to-head effects between them are less than other because of the sample size are smaller so all the predicted matches of player 1 win are zero in this case.
 
-In general, the model performance with considering head-to-head effect is better in terms of ATP data rather than WTA data.
+In general, the model performance with considering head-to-head effect is better in terms of ATP data rather than WTA data, but both of them can be accepted in this project even though they are not perfectly fit to the data.
 
 
 ```{r cali-stan-table,fig.cap="Calibration table for evaluating head-to-head effect"}
@@ -1128,37 +1140,183 @@ ggarrange(p3,p4)
 
 ### Random effect in bayesian paired comparison model
 
-```{r surface-data}
+For finding the expected probability in each match, using the `predict` function for `bpc` objects which are derived from the `bpc` function with surface random effects. It will generate the 100 iteration by default and the get the mean probability of each columns which will be the final probability for each match. And then the mean probability of each pair player has to be calculated through sum of expected probability in one match divided by sum of the matches they played. The final data will be combined with the predicted probability against with actual number of matches of player 0.
 
+The figure \@ref(fig:cali-surface-plot) can be visualized directly how well the model fit in the data which has been considered the surface random effect. Based on the scatter plot, the performance of the mixed effect models in the data are relatively poor especially in WTA data. The shape in carpet court looks very abnormal. The volatility between prediction and actual probability in WTA is larger than in ATP and all the predicted values are inconsistent with the reality or even close to actual value in both of plots. 
+
+Further explanation need to be explored from the table \@ref(fig:atp-sf-cali) and \@ref(fig:wta-sf-cali) which display the mean of expected probability with different types of surface against the actual probability in each bin in ATP data and WTA data. In the table \@ref(fig:atp-sf-cali), the mean of expected probability increase gradually in all surface but the actual value seems to be concentrated at 0.4 to 0.5 in the third to eighth bin. One of the interesting things is the difference between expected probability and actuality are smallest in the fifth bin in three surfaces. Before the fifth bin, the mixed effect model underestimated the probabilities of player 0 win, but after that, the probabilities of player 0 win are overestimated.
+
+On the other hand, in the table \@ref(fig:wta-sf-cali),only a few matches happened in the carpet court which may raise more uncertainty for evaluating this surface type in the model. It is also one of the reasons that the probabilities from model fitting with the carpet court are irregular. Moreover,the differences between expected probability and real value in WTA are completely different from ATP table as the probabilities of player 0 wins in all surfaces are overestimated from the mixed effect model before the fifth bin and are underestimated after the fifth bin. It is worth noting that the expected probability of player 0 wins in the third bin is the most underestimated, with an average probability of about 64%, while the average predicted value is only 26%. That is the peak in the grass court that shown in the scatter plot.
+
+Obviously, the performances of the mixed effect model in both data sets are not good and the accuracy of model fitting is very low therefore the mixed effect model about considering the random effect in different types of surface is not the appropriate method to predict the tennis matches based on the calibration results.
+
+```{r surface-count}
 atp_top_100%>%
   group_by(Player0, Player1,Surface) %>%
 	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")->atp_sf
+
+
 wta_top_100%>%
   group_by(Player0, Player1,Surface) %>%
 	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")->wta_sf
 ```
 
+
 ```{r surface-predicted-value,eval=FALSE}
 
-y_pp <- posterior_predictive(atp_random)
-y <- y_pp$y%>%
-  as_tibble()
-yrep <- y_pp$y_pred%>%
-  as_tibble()
-new_atp<-atp_top_surface%>%
-  dplyr::select(player0,player1,Surface)
+#generate the predicted probability in each matches
+predict(atp_random,newdata = atp_top_surface%>%select(-y),type="repsonse")%>%
+  as_tibble()->atp_spred
 
-predict(atp_random,type="response",newdata = new_atp)%>%
-  as_tibble()->atp_pred
-cbind(new_atp,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
-  as_tibble())->atp_surface_pred
-#write_csv(atp_surface_pred,"atp_surface_pred.csv")
+atp_top_surface%>%
+  select(-y)%>%
+  cbind(colMeans(atp_spred%>%
+           select(starts_with("y_pred")))%>%
+  as_tibble())->atp_spred
 
-new_wta<-wta_surface%>%
-  dplyr::select(player0,player1,Surface)
-predict(wta_random,type="response",newdata = new_wta)%>%
-  as_tibble()->wta_pred
-cbind(new_wta,colMeans(dplyr::select(df, starts_with('y_pred')))%>%
-  as_tibble())->wta_surface_pred
-#write_csv(wta_surface_pred,"wta_surface_pred.csv")
+#calculate the mean of predicted probability for each pair of players
+atp_spred%>%
+  group_by(player0,player1,Surface)%>%
+  summarise(pred_mean=sum(value)/n(),p0_count=n())->new_atp_spred
+
+new_atp_spred%>%
+  right_join(atp_sf,by=c("player0"="Player0","player1"="Player1","Surface"="Surface","p0_count"="y"))->atp_sf_pred
+
+atp_sf_pred%>%
+  filter(is.na(pred_mean))%>%
+  left_join(new_atp_spred,by=c("player0"="player1","player1"="player0","Surface"="Surface"))%>%
+  select(player0,player1,Surface,pred_mean.y,p0_count.x,n)%>%
+  rename(pred_mean=pred_mean.y,p0_count=p0_count.x)%>%
+  rbind(atp_sf_pred%>%drop_na())%>%
+  rename(y_pred=pred_mean)->atp_sf_pred
+
+
+predict(wta_random,newdata = wta_top_surface%>%select(-y),type="repsonse")%>%
+  as_tibble()->wta_spred
+
+wta_top_surface%>%
+  select(-y)%>%
+  cbind(colMeans(wta_spred%>%
+           select(starts_with("y_pred")))%>%
+  as_tibble())->wta_spred
+
+#calculate the mean of predicted probability for each pair of players
+wta_spred%>%
+  group_by(player0,player1,Surface)%>%
+  summarise(pred_mean=sum(value)/n(),p0_count=n())->new_wta_spred
+
+
+
+new_wta_spred%>%
+  right_join(wta_random,by=c("player0"="Player0","player1"="Player1","Surface"="Surface","p0_count"="y"))->wta_sf_pred
+
+wta_sf_pred%>%
+  filter(is.na(pred_mean))%>%
+  left_join(new_wta_spred,by=c("player0"="player1","player1"="player0","Surface"="Surface"))%>%
+  select(player0,player1,Surface,pred_mean.y,p0_count.x,n)%>%
+  rename(pred_mean=pred_mean.y,p0_count=p0_count.x)%>%
+  rbind(wta_sf_pred%>%drop_na())%>%
+  rename(y_pred=pred_mean)->wta_sf_pred
+
+#write_csv(atp_sf_pred,"atp_surface_pred.csv")
+#write_csv(wta_sf_pred,"wta_surface_pred.csv")
 ```
+
+
+
+```{r read-surface-prediction}
+atp_sf_pred<-read_csv(here("data/atp_surface_pred.csv"))
+wta_sf_pred<-read_csv(here("data/wta_surface_pred.csv"))
+```
+
+
+```{r atp-sf-cali,fig.cap="Calibration table for evaluating the random effect in WTA data"}
+
+bins(atp_sf_pred)->atp_sf_bins
+
+atp_sf_bins%>%
+  group_by(bins,Surface)%>%
+  summarise(mean_pred=sum(y_pred)/n())->atp_sf_freq
+
+atp_sf_bins%>%
+  group_by(bins,Surface)%>%
+  summarise(mean_act=sum(p0_count)/sum(n))%>%
+  left_join(atp_sf_freq)%>%
+  mutate(Surface=as.factor(Surface))->atp_sf_cali
+
+
+atp_sf_cali%>%
+  rename(atp_mean_act=mean_act,
+         atp_mean_pred=mean_pred)%>%
+  mutate(diff=atp_mean_act-atp_mean_pred)%>%
+  arrange(desc(Surface))%>%
+  datatable(options = list(pageLength = 10),filter = 'top', caption = 'Bradley Terry model with random effect in ATP data')%>%
+  formatRound(columns=c('atp_mean_act', 'atp_mean_pred','diff'), digits=4)
+
+```
+
+```{r wta-sf-cali,fig.cap="Calibration table for evaluating the random effect in WTA data"}
+bins(wta_sf_pred)->wta_sf_bins
+
+wta_sf_bins%>%
+  group_by(bins,Surface)%>%
+  summarise(mean_pred=sum(y_pred)/n())->wta_sf_freq
+
+wta_sf_bins%>%
+  group_by(bins,Surface)%>%
+  summarise(mean_act=sum(p0_count)/sum(n))%>%
+  left_join(wta_sf_freq)%>%
+  mutate(Surface=as.factor(Surface))->wta_sf_cali
+
+wta_sf_cali%>%
+  rename(wta_mean_act=mean_act,
+         wta_mean_pred=mean_pred)%>%
+  mutate(diff=wta_mean_act-wta_mean_pred)%>%
+  arrange(desc(Surface))%>%
+  datatable(options = list(pageLength = 10),filter = 'top', caption ='Bradley Terry model with random effect in ATP data')%>%
+  formatRound(columns=c('wta_mean_act', 'wta_mean_pred','diff'), digits=4)
+```
+
+```{r cali-surface-plot,fig.cap="Calibration curve for surface random effect in bayesian paired comparison model" }
+
+p5<-ggplot(atp_sf_cali,aes(mean_pred,mean_act,color=Surface))+
+  geom_line()+
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_bw()+
+  xlab("Estimated probability")+ylab("Actual probability")+
+  ggtitle("ATP data")
+
+
+p6<-ggplot(wta_sf_cali,aes(mean_pred,mean_act,color=Surface))+
+  geom_line()+
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_bw()+
+  xlab("Estimated probability")+ylab("Actual probability")+
+  ggtitle("WTA data")
+
+ggarrange(p5,p6)
+```
+
+
+# Conclusion
+
+This project seeks to develop and compare the different approaches for predicting the tennis match outcomes. The main method to construct the model structure is the Bradley-Terry model which is one of the most effective way to apply the paired comparison model[@mchale2011bradley]. Based on this, the head-to-head effect would be considered as the explanatory factor in the model so that the Bayesian paired comparison model was introduced by capturing these matchup effects. In addition, not only considering the head-to-head effect, but also exploring the ability of each player in different types of surface. The mixed effect model with surface random effects was implemented in this project for achieving the goal. After modeling the data, the calibration would be evaluated the model fitting and model performance in three models.
+
+For the standard Bradley-Terry model, the model fitting was good and it trained the data to evaluate the ability of each player. The model performance in ATP and WTA data was well and the predicted probabilities were closer to actual value. However, the standard Bradley Terry model only implemented based on the match level information such as the number of matches with player 0 wins against with player 0 loses, which was not enough to construct the prediction model for tennis matches[@jackson1997heavy]. The result of player-opponent match sometimes is not only about the different capability between two players, it also about the playing style or abilities in different surface courts.
+
+The findings of the head-to-head model can be explained some abnormal situation like Wawrinka over Cilic, who lost all the matches in 7 times and their matchup effect was in the second place compared with other. Also,fitting the models with a Bayesian approach results in performance which is marginally better than the standard Bradley Terry model even though the volatility in WTA was larger. Additionally,for the ATP data,this model gives a slight improvement in performance compared to a standard point level Bradley-Terry model, which was closer to actual probability after considering with the head-to-head effect in the matches.
+
+Finally,the mixed effect model was performed in both data sets, which considered the different surface courts in the match records that evaluated the ability of each player based on the surface courts. The performance of this model was relatively poor in both data sets especially in WTA data. Also,the model fitting of these two data was very low and neither of them has achieved the expected effect. However,this model showed that the expected ability of each player in different surface courts was reasonable compared with the reality.
+
+## Further work
+
+### Expanding the Data Set:
+
+### Combing the Surface Factor and Head-to-Head Models
+
+### Additional Factors
+
+
+
