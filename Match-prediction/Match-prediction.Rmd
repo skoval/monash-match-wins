@@ -23,9 +23,7 @@ library(dplyr)
 library(ggplot2)
 library(here)
 library(kableExtra)
-library(wordcloud)
-library(ggrepel)
-library(RColorBrewer)
+library(ggwordcloud)
 library(scales)
 library(formattable) 
 library(bpcs)
@@ -56,24 +54,25 @@ wta_results%>%
 
 # Introduction
 
-In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis is one of the appealing sports chosen in this project. The purpose of this project is to study the performance of different prediction methods in men's and women's professional tennis matches. The measure is used to build up the prediction model based on historical data in the last decay. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type and the variation between players such as head-to-head effect would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players. 
+In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis as one of the appealing sports is chosen in this project. The purpose of this project is to study the performance of different prediction methods in men's and women's professional tennis matches. The measure is used to build up the prediction model based on historical data in the last decade. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models do not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type about the variation of players' ability would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players.  
+
 
 # The motivation of this project
 
-The main objective of the project is to develop and evaluate different approaches for predicting the tennis match results. In addition, by considering the head to head effects which might exist in the matches, this project would investigate strategies for estimating and incorporating these matchup effects into a prediction model.
+The main objective of the project is to develop and evaluate different approaches for predicting the tennis match results. In addition, by considering the head to head effects which might exist in the matches, this project would investigate strategies for estimating and incorporating these matchup effects into a prediction model. Furthermore, the ability of players in the different surface court would be explored in the modeling process as well.
 
 
 # Data description {#data}
 
 
 There are two data sets such as `atp_results` and `wta_results`used on this analysis report, and the two data sets consist of approximately 36,000 matches information from 2011-01-01 to 2020-01-23 in ATP tour and WTA tour. Both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures. 
-The table \@ref(tab:data-structure) summarises the key information which is contained about each match in the data. The data sets also contain further side information such as player id, date of tennis tournaments, Name of the match, the around in tennis match and ect. The full list is omitted as none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project. Theoretically, the full data sets should be used for data modeling but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem.
+The table \@ref(tab:data-structure) summarizes the key information which is contained about each match in the data. The data sets also contain further side information such as player id, date of tennis tournaments, Name of the match, the around in tennis match and ect. The full list is omitted as none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project. Theoretically, the full data sets should be used for data modeling but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem.
 
 
 ```{r data-structure, warning=FALSE, message=FALSE}
 data <- data.frame(
   Variable = c("Surface","Player1","Player2","Tier"),
-  Description = c("Match Surface","Match Winner","Match Loser","Collective term referring to the group of matches or rubbers played between two teams in a team tennis even" ))
+  Description = c("Match Surface","Match Winner","Match Loser","Professional tennis tour tournament" ))
 
 data %>%
   kable(caption = "Key match informatiom") %>%
@@ -89,37 +88,52 @@ data %>%
 
 # Head to Head effect Analysis
 
-Head to head means the direct competition between two players. In this project, head-to-head effect indicates that the matchup effect of two specific players meeting in the matches. This is not only to consider the player's ability in tennis skills such as the talented-levels, but more importantly to detect whether there is a certain effect between the two players such as one player might have over a specific opponent that goes beyond what their ability would predict, factors like style or psychological impact.
+Head to head means the direct competition between two players. In this project, head-to-head effect indicates that the matchup effect of two specific players meeting in the matches. This is not only to consider the player's ability in tennis skills such as the talented-levels, but more importantly to detect whether there is a certain effect between the two players such as one player might have over a specific opponent that goes beyond what their ability would predict, factors like playing style, familiar with their opponents even the psychological impact.
 
-```{r atp-most,fig.cap="The players won more than 200 matches in ATP"}
+```{r match-most,fig.cap="The players won more than 200 matches in the last ten years"}
 
 #Use the words cloud to briefly introduce who has won the most of matches in her/his career, which the total matches for players are above 200
 atp_winner_freq<-atp_results%>%
   group_by(player0)%>%
   summarise(freq= n())%>%
   arrange(desc(freq))%>%
-  filter(freq>=200)%>%ungroup
+  filter(freq>=200)%>%
+  ungroup()
 
-pal <- brewer.pal(8, "Dark2")
+freq1<-atp_winner_freq%>%
+  mutate(angle = 90 * sample(c(0, 1), n(), replace = TRUE, prob = c(60, 40)))%>%
+ggplot(aes(label = player0, size = freq,angle=angle,
+            col=factor(sample.int(10, nrow(wta_winner_freq), replace = TRUE)))) + 
+  geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
+                      grid_size = 1, eccentricity = .9)+
+  scale_size_area(max_size = 4)+
+  scale_color_brewer(palette = "Paired", direction = -1)+
+  theme_void()+
+  ggtitle("ATP data")
 
-wordcloud::wordcloud(words = atp_winner_freq$player0, freq =atp_winner_freq$freq,
-          scale=c(1.3,0.5),random.order=T, colors=pal, vfont=c("sans serif","plain"))
-
-```
-
-```{r wta-most,fig.cap="The players won more than 200 matches in WTA" }
 wta_winner_freq<-wta_results%>%
   group_by(player0)%>%
   summarise(freq= n())%>%
   arrange(desc(freq))%>%
   filter(freq>=200)%>%ungroup
-wordcloud::wordcloud(words = wta_winner_freq$player0, freq =wta_winner_freq$freq,
-          scale=c(1,0.5),random.order=T, colors=pal, vfont=c("sans serif","plain"))
+
+freq2<-wta_winner_freq%>%
+   mutate(angle = 90 * sample(c(0, 1), n(), replace = TRUE, prob = c(60, 40)))%>%
+ggplot(aes(label = player0, size = freq,angle=angle,
+           col=factor(sample.int(10, nrow(wta_winner_freq), replace = TRUE)))) + 
+  geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
+                      grid_size = 1, eccentricity = .9)+
+  scale_size_area(max_size = 4)+
+  scale_color_brewer(palette = "Paired", direction =1)+
+  theme_void()+
+  ggtitle("WTA data")
+
+ggarrange(freq1,freq2,ncol = 2)
 
 ```
 
 
-The figure \@ref(fig:atp-most) and the figure \@ref(fig:wta-most) show the male and female players who have won more than 200 matches are in the last ten years. Novak Djokovic, as the current number one male player in the world rankings, has won more than 500 matches over the past last decay, and Roger Ferrer and Rafael Nadal who are the current top 10 players in the world, winning more than 450 matches. On the other hand, Caroline Wozniacki was the top 1 female players between 2010 and 2012, has won more than 370 matches in the last ten years. 
+The figure \@ref(fig:match-most) shows the male and female players who have won more than 200 matches are in the last ten years. Novak Djokovic, as the current number one male player in the world rankings, has won more than 500 matches over the past last decay, and Roger Ferrer and Rafael Nadal who are the current top 10 players in the world, winning more than 450 matches. On the other hand, Caroline Wozniacki was the top 1 female players between 2010 and 2012, has won more than 370 matches in the last ten years. 
 
 ## Evaluating the head to head effect in each tier
 
@@ -154,7 +168,7 @@ surface_count<-function(data,player0,player1,Surface){
 
 However, tennis sports is like a pyramid, with the size of the competitive pool getting lower when the players go upward the tournament tier as the stronger players will stay until the end. In this case,if there are many cases of player-opponent matchups with a single match, this will affect the accuracy of estimations of the head-to-head effects and bring all the effects closer to zero that would be the case with a less sparse sample. 
 
-Therefore, from the table \@ref(fig:atp-tier),having played more than 3 matches against an opponent is an unusually long history compared to the normal matches. In the `atp` data, there are four tier groups and ATP WorldTour 250 has most of matches records which is the lowest tier of annual men's tennis tournaments on the main ATP Tour. The player-opponent with more than 3 matches accounted for 33.28 percent in the ATP WorldTour 250, and 40.75 in the Matser1000. It is obviously that the number of matches against the same opponent will be less and less in each tier especially in ATP WorldTour 500. A similar situation occurs in `wta` data.
+Therefore, from the table \@ref(fig:atp-tier),having played more than 3 matches against an opponent is an unusually long history compared to the normal matches. In the `atp` data, there are four tier groups and ATP WorldTour 250 has most of matches records which is the lowest tier of annual men's tennis tournaments on the main ATP Tour. The player-opponent with more than 3 matches accounted for 33.28% occurred in the ATP WorldTour 250, and 40.75% occurred in the Matser1000. It is obviously that the number of matches against the same opponent will be less and less in each tier especially in ATP WorldTour 500. A similar situation occurs in `wta` data.
 
 Based on the table \@ref(fig:wta-tier) shows that less than chance of playing more than 2 or 3 games against the same opponent happened in all tiers. It is worth noting that WTA Tour will rename its tournaments in 2021 which will simplify the understanding of the structure of the tour. Therefore, the premier category become WTA 1000s and 500s and international category become WTA 250s, much like the ATP tour tournaments. In addition, 125K serier is like the challenger level in ATP which is the entry-level for tour tournaments. But from the table data, the number of matches occurred in the 125K Series is the lowest, suggesting that players at the 125K Series will not often build up substantial head-to-heads against other players on the tour. According to the data from these two tables, it indicates that head-to-head matches are infrequent and that the number of matches in each tier that involve player-opponent matchup effects in the long history is very small.
 
@@ -910,11 +924,11 @@ wta_lookup%>%
 
 1. Ability table with different surface in ATP data :
 
-```{r ability-atp-surface,fig.cap="The most higest estimated ability of ATP players in different surface" }
+```{r ability-atp-surface,fig.cap="The most highest estimated ability of ATP players in different surface" }
 atp_hard%>%head(10)%>%rbind(atp_clay%>%head(10))%>%
  rbind(atp_grass%>%head(10))%>%
   mutate(Surface=as.factor(Surface))%>%
-datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most higest estimated ability of ATP players in different surface" )%>%
+DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most highest estimated ability of ATP players in different surface" )%>%
   formatRound(columns=c('Mean'), digits=4)
 ```
 
@@ -925,18 +939,18 @@ From the table \@ref(fig:ability-atp-surface),it shows the most highest estimate
 2. Ability table with different surface in WTA data :
 
 
-```{r ability-wta-surface,fig.cap="The most higest estimated ability of WTA players in different surface" }
+```{r ability-wta-surface,fig.cap="The most highest estimated ability of WTA players in different surface" }
 wta_hard%>%head(10)%>%rbind(wta_clay%>%head(10))%>%
  rbind(wta_grass%>%head(10))%>%
   rbind(wta_carpet%>%head(10))%>%
   mutate(Surface=as.factor(Surface))%>%
-datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most higest estimated ability of ATP players in different surface" )%>%
+DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most highest estimated ability of WTA players in different surface" )%>%
   formatRound(columns=c('Mean'), digits=4)
 ```
 
 
 
-Anastasia has the most advanced tennis ability in the hard court based on the table \@ref(fig:ability-wta-surface). Since Anastasia has played 125 games, almost the most on hard court, and won more than half, Anastasia's ability should be higher. It is worth noting that Naomi and Sabalenka are in the fifth and eighth spot as well,both of them are the top 10 players in the world. In terms of the estimated players' ability to play, Tamara Zidansek is the highest in the clay court. Although Tamara claimed the first title on the pro-level in 2014, she did not have many match records in the model data but it is not hard to evaluate for that Tamara met with other 14 players in the 19 matches and won 15 times among them,indicating that Tamara has advantage in the clay court. Similarly, Kristina Mladenovic	is in the second spot of the top 10 players who has the most advanced skills in the clay court. Kristina won 25 out of 32 matches base on the past records, showing her better performance when playing in the clay court. It is interesting to see the estimated ability in the grass court for Alison Riske is greater than 1, and is also the highest among all players. In fact, Alison played 30 matched in total and won 22 times,so the probability of Alinson win is around 73%,the highest of all players. Barbora Strycova is in the second place in the list, winning 17 of 27 matches with a 63% chance. 
+Anastasia has the most advanced tennis ability in the hard court based on the table \@ref(fig:ability-wta-surface). Since Anastasia has played 125 games, almost the most on hard court, and won more than half, Anastasia's ability should be higher. It is worth noting that Naomi and Sabalenka are in the fifth and eighth spot as well,both of them are the top 10 players in the world. In terms of the estimated players' ability to play, Tamara Zidansek is the highest in the clay court. Although Tamara claimed the first title on the pro-level in 2014, she did not have many match records in the model data but it is not hard to evaluate for that Tamara met with other 14 players in the 19 matches and won 15 times among them,indicating that Tamara has advantage in the clay court. Similarly, Kristina Mladenovic	is in the second spot of the top 10 players who has the most advanced skills in the clay court. Kristina won 25 out of 32 matches base on the past records, showing her better performance when playing in the clay court. It is interesting to see the estimated ability in the grass court for Alison Riske is greater than 1, and is also the highest among all players. In fact, Alison played 30 matched in total and won 22 times,so the probability of Alinson win is around 73%,the highest of all players. Barbora Strycova is in the second place in the list, winning 17 of 27 matches with a 63% chance. Furthermore,although only a few matches occurred in the carpet court, Martincova has the highest expected ability, won all the matches over other players.
 
 
 
@@ -1312,11 +1326,26 @@ Finally,the mixed effect model was performed in both data sets, which considered
 
 ## Further work
 
-### Expanding the Data Set:
+### Expanding the Data Set
+
+In this project, the full data set with ATP and WTA historical match records should be theoretically used to construct the model and evaluate the model performance. However, because of large amount of the full data, the system run slowly to finish the modeling process especially in head-to-head model, it even took more than 2 days to run without any results. Therefore, by filtering the top 100 players to develop the model rather than the full data, which may cause the problems like incomplete information as there was only a small amount of higher ranker players data available. One of the improvements from this project is to use the complete data but it may need to work out how to improve the system efficiency during the modeling.
+
+
 
 ### Combing the Surface Factor and Head-to-Head Models
 
+In the mixed effect model, it has been demonstrated that the variation of player skills between different surface courts could be explained although the accuracy of model prediction was very low. Future work could implement the surface random effect factors into the head-to-head effect model, which would provide more possibility and information for exploration of head-to-head effect.
+
 ### Additional Factors
 
+The other improvement of this project is to take player ranking and Elo score as exploratory factors in the model, which can improve the accuracy and practicability of tennis prediction. Additionally,the Elo-based prediction system created by the website FiveThirtyEight.com[@morris2016we], which would be considered as the further model development well[@vaughan2021well].
 
 
+# Acknowlegments
+
+The R packages are used in this report: 
+tidyverse[@tidyverse]; dplyr[@dplyr]; ggplot2[@ggplot2]; here[@here]; kableExtra[@kableExtra]; ggwordcloud[@ggwordcloud]; scales[@scales]; formattable[@formattable]; bpcs[@bpcs]; BradleyTerry2[@BradleyTerry2]; rvest[@rvest]; rstan[@rstan]; bayesplot[@bayesplot]; ggpubr[@ggpur]; DT[@DT].
+
+
+
+# Reference
