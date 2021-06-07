@@ -1,5 +1,5 @@
 ---
-title: "Predicting match results in professional tennis"
+title: "WHO WILL WIN?: Predicting match results in professional tennis"
 author: XITONG HE 
 organization: ETC5543 Internship Project
 bibliography: references.bib
@@ -7,16 +7,17 @@ biblio-style: authoryear-comp
 linestretch: 1.5
 output:
     bookdown::html_document2:
+      toc: yes
+      toc_float: yes
     theme: paper
     keep_tex: yes
     number_sections: yes
     citation_package: biblatex
-    toc: false
 editor_options: 
   chunk_output_type: inline
 ---
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache=TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, cache=FALSE, message=FALSE, warning=FALSE,fig.pos = 'H', fig.align ='center',fig.width = 7,fig.height = 5)
 
 library(tidyverse)
 library(dplyr)
@@ -78,7 +79,7 @@ data %>%
   kable(caption = "Key match informatiom") %>%
   kable_styling(bootstrap_options = 
                 c("striped", "condensed"), 
-                full_width = F, 
+                full_width = T, 
                 position = "center")
 ```
 
@@ -267,9 +268,9 @@ In the following section, a variety of prediction methods will be introduced for
 
 The main approaches to tennis match prediction in this project fall into two categories: simple pair comparison models and Bayesian Paired Comparison models in Stan. This section provides part of the technical description for models trained during this project.
 
-## Pairwise Comparison Models
+## Pairwise Comparison Model
 
-Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous and more effective method for establishing pairwise comparison is Bradley Terry Model[@bradley1952rank], applying in the contest between two players in tennis[@mchale2011bradley].
+Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous and more effective method for establishing pairwise comparison is Bradley-Terry Model[@bradley1952rank], applying in the contest between two players in tennis[@mchale2011bradley].
 
 Let $y_{ij,t}$ be the outcome of a tennis match that is played between player i and player j at time t. We assume that we have information about K different players over a time period of length n (i.e.: i, j =1.... ,K and t =1..., n). The outcome ${y_{ij,t} =1}$ if player i wins the match at time t whereas the outcome ${y_{ij,t} =0}$ if player j wins the match at time t. Therefore, the outcomes about $y_{ij,t}$ are binary response value.
 
@@ -406,7 +407,9 @@ h2h_count(wta_top_100,player0,player1)%>%
 ```
 
 
-## Bradley Terry Model Evaluation
+## Model Impletment
+
+### Standard Bradley-Terry Model
 
 
 
@@ -449,7 +452,7 @@ atp_abilities$Player <- factor(atp_abilities$Player,
                         order = T)
 
 atp_abilities%>%
-  datatable(options = list(pageLength = 10,dom = 'Bt'),filter = 'top', caption = 'The estimated ability for ATP data')%>%
+  datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = 'The estimated ability for ATP data')%>%
   formatRound(columns=c('Ability', 'SE'), digits=4)
 ```
 
@@ -467,7 +470,7 @@ wta_abilities$Player <- factor(wta_abilities$Player,
                         levels = wta_abilities$Player[order(wta_abilities$Ability)],
                         order = T)
 wta_abilities%>%
-   datatable(options = list(pageLength = 10),filter = 'top', caption = 'The estimated ability for WTA data')%>%
+   datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe", caption = 'The estimated ability for WTA data')%>%
    formatRound(columns=c('Ability', 'SE'), digits=4)
   
   # DT::datatable(options = list(pageLength = 10),filter = 'top', rownames = FALSE,caption = htmltools::tags$caption(
@@ -513,8 +516,23 @@ $$Pr(player1\quad win)=\frac{e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player
 
 
 
-```{r stan-data-function}
-#set up the stan model data for atp and wta
+```{r stan-model-data}
+
+atp_stan_data<-atp_match%>%
+  rename(n=total_count,y=p1_count)%>%
+  mutate(player0=as.character(Player0),
+         player1=as.character(Player1))%>%
+  select(player0,player1,n,y)
+
+wta_stan_data<-wta_match%>%
+  rename(n=total_count,y=p1_count)%>%
+  mutate(player0=as.character(Player0),
+         player1=as.character(Player1))%>%
+  select(player0,player1,n,y)
+```
+
+```{r stan-model,eval=FALSE}
+#set up the function for constructing the stan model data
 make_stan_data <- function(data, win, n, player0, player1){
   
   players <- unique(c(data[[player0]], data[[player1]]))
@@ -531,25 +549,6 @@ make_stan_data <- function(data, win, n, player0, player1){
     N_players = max(index)
   )
 }
-
-
-atp_stan_data<-atp_match%>%
-  rename(n=total_count,y=p1_count)%>%
-  mutate(player0=as.character(Player0),
-         player1=as.character(Player1))%>%
-  select(player0,player1,n,y)
-
-wta_stan_data<-wta_match%>%
-  rename(n=total_count,y=p1_count)%>%
-  mutate(player0=as.character(Player0),
-         player1=as.character(Player1))%>%
-  select(player0,player1,n,y)
-
-
-
-```
-
-```{r stan-model,eval=FALSE}
 
 model_data_atp <- make_stan_data(atp_stan_data, "y", "n", "player0", "player1")
 model_data_wta <- make_stan_data(wta_stan_data, "y", "n", "player0", "player1")
@@ -756,7 +755,7 @@ wta_h2h%>%
   filter(mean>0)%>%
   select(player0_rank,player1_rank,player0,player1,mean)%>%
   arrange(desc(mean))%>%
-  datatable(options = list(pageLength = 10),filter = 'top',caption = 'The head-to-head effect in different pair of players in WTA')%>%
+  datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = 'The head-to-head effect in different pair of players in WTA')%>%
    formatRound(columns=c('mean'), digits=4)
 ```
 
@@ -928,7 +927,7 @@ wta_lookup%>%
 atp_hard%>%head(10)%>%rbind(atp_clay%>%head(10))%>%
  rbind(atp_grass%>%head(10))%>%
   mutate(Surface=as.factor(Surface))%>%
-DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most highest estimated ability of ATP players in different surface" )%>%
+DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = "The most highest estimated ability of ATP players in different surface" )%>%
   formatRound(columns=c('Mean'), digits=4)
 ```
 
@@ -944,7 +943,7 @@ wta_hard%>%head(10)%>%rbind(wta_clay%>%head(10))%>%
  rbind(wta_grass%>%head(10))%>%
   rbind(wta_carpet%>%head(10))%>%
   mutate(Surface=as.factor(Surface))%>%
-DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',caption = "The most highest estimated ability of WTA players in different surface" )%>%
+DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',class = "table-hover table-striped cell-border stripe",caption = "The most highest estimated ability of WTA players in different surface" )%>%
   formatRound(columns=c('Mean'), digits=4)
 ```
 
@@ -963,7 +962,7 @@ Calibration is a measure of the model performance which can be defined as how we
 When a model is well-calibrated, the mean of actual probability against with mean of predicted probability will close with each other. If the mean of actual probability is greater than the mean of predicted probability, the models trend to be underestimate the wins of players, the reverse is overestimate.
 
 
-## Bradley Terry Model
+## Standard Bradley-Terry Model
 
 In the Bradley Terry model, using the `predict` function to predictive winning probability of player 0 in the competition between each pair of players, and then grouping the expected probability into 10 bins to calculated the mean of expected probability in each bins. Table \@ref(tab:cali-bt-table) shows the comparison between the mean of actual probability and the mean of predictive probability in each bin in ATP and WTA. The larger the positive difference is, the greater the underestimation of the winning rate is. At the same time, the larger the negative difference is, the more overestimated the winning rate is. In order to directly visualize the difference between expected value against with actuality, the scatterplot \@ref(fig:cali-bt-plot) is constructed as the calibration curve to evaluate the model performance.
 
@@ -997,7 +996,7 @@ bin_freq<-function(data){
 }
 ```
 
-```{r cali-bt-table,fig.cap="Calibration table with Bradley Terry Model"}
+```{r cali-bt-table,fig.cap="Calibration table with standard Bradley-Terry Model"}
 atp_match%>%
   cbind(predict(atp_bt,type="response")%>%
   as_tibble())%>%
@@ -1036,7 +1035,7 @@ atp_bt_cali%>%
          wta_mean_pred=mean_pred),by=c("bins"="bins"))%>%
   mutate(atp_diff=atp_mean_act-atp_mean_pred,
          wta_diff=wta_mean_act-wta_mean_pred)%>%
-  kable(caption = "Calibration table for Bradley Terry model",digits = 4) %>%
+  kable(caption = "Calibration table for standard Bradley-Terry model",digits = 4) %>%
   kable_styling(bootstrap_options = 
                   c("striped", "condensed"), 
                   full_width = T, 
@@ -1244,7 +1243,7 @@ wta_sf_pred<-read_csv(here("data/wta_surface_pred.csv"))
 ```
 
 
-```{r atp-sf-cali,fig.cap="Calibration table for evaluating the random effect in WTA data"}
+```{r atp-sf-cali,fig.cap="Calibration table for evaluating the random effect in ATP data"}
 
 bins(atp_sf_pred)->atp_sf_bins
 
@@ -1264,7 +1263,7 @@ atp_sf_cali%>%
          atp_mean_pred=mean_pred)%>%
   mutate(diff=atp_mean_act-atp_mean_pred)%>%
   arrange(desc(Surface))%>%
-  datatable(options = list(pageLength = 10),filter = 'top', caption = 'Bradley Terry model with random effect in ATP data')%>%
+  datatable(options = list(pageLength = 10),filter = 'top' ,class = "table-hover table-striped cell-border stripe",caption = 'Bradley Terry model with random effect in ATP data')%>%
   formatRound(columns=c('atp_mean_act', 'atp_mean_pred','diff'), digits=4)
 
 ```
@@ -1287,7 +1286,7 @@ wta_sf_cali%>%
          wta_mean_pred=mean_pred)%>%
   mutate(diff=wta_mean_act-wta_mean_pred)%>%
   arrange(desc(Surface))%>%
-  datatable(options = list(pageLength = 10),filter = 'top', caption ='Bradley Terry model with random effect in ATP data')%>%
+  datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption ='Bradley Terry model with random effect in WTA data')%>%
   formatRound(columns=c('wta_mean_act', 'wta_mean_pred','diff'), digits=4)
 ```
 
