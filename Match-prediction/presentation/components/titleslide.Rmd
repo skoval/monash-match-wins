@@ -1,0 +1,50 @@
+
+background-image: url(`r rmarkdown::metadata$bgimg`)
+background-size: cover
+class: hide-slide-number split-70 title-slide
+count: false
+
+.column.shade_black[.content[
+
+<br>
+
+# .outline-text[`r rmarkdown::metadata$title`]
+
+<br>
+
+*`r rmarkdown::metadata$subtitle`*
+
+<br>
+<br>
+<br>
+<br>
+
+`r rmarkdown::metadata$author` 
+
+<br>
+
+.bottom_abs.width100[
+
+`r rmarkdown::metadata$date`
+
+<br>
+]
+
+
+]]
+
+
+
+<div class="column transition monash-m-new delay-0s" style="clip-path:url(#swipe__clip-path);">
+<div class="background-image" style="background-image:url('images/large.png');background-position: center;background-size:cover;margin-left:3px;">
+<svg class="clip-svg absolute">
+<defs>
+<clipPath id="swipe__clip-path" clipPathUnits="objectBoundingBox">
+<polygon points="0.5745 0, 0.5 0.33, 0.42 0, 0 0, 0 1, 0.27 1, 0.27 0.59, 0.37 1, 0.634 1, 0.736 0.59, 0.736 1, 1 1, 1 0, 0.5745 0" />
+</clipPath>
+</defs>	
+</svg>
+</div>
+</div>
+
+
