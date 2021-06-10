@@ -11,18 +11,20 @@ count: false
 # .outline-text[`r rmarkdown::metadata$title`]
 
 <br>
-
 *`r rmarkdown::metadata$subtitle`*
 
 <br>
 <br>
+Supervised by Stephanie Kovalchik from Zelus Analytics
+
 <br>
 <br>
 
+<br>
+<br>
 `r rmarkdown::metadata$author` 
 
 <br>
-
 .bottom_abs.width100[
 
 `r rmarkdown::metadata$date`
