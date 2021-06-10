@@ -153,7 +153,7 @@ ggplot(aes(label = Player, size = total_count,angle=angle,
             col=factor(sample.int(10, nrow(wta_full_h2h), replace = TRUE)))) + 
   geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
                       grid_size = 1, eccentricity = .9)+
-  scale_size_area(max_size = 2)+
+  scale_size_area(max_size = 3)+
   scale_color_brewer(palette = "Paired", direction = -1)+
   theme_void()+
   ggtitle("ATP data")
@@ -329,7 +329,7 @@ Bayesian inferences are based on a posterior probability density distribution (f
 
 * Unobserved variables. These are the parameters of the model itself which are chosen as part of the model design. These will be represented generally by the notation $w$.
 
-* prior probability: $P(w)$. A standard normal prior is used in this project ($w_{std} \sim N(0,1)$;$w \sim N(0,w_{std}^2)$)
+* prior probability: $P(w)$. A standard normal prior is used in this project.
 
 The future outcomes can be predicted based on the relationship $P(r|w)$ if given the parameters of the model. However,since the parameters are unknown, the future value become inferred based on the historical data. For some data D, on a set of n outcomes, the posterior probability of the given model parameters can be expressed as:
 $$P(w|D)=\frac{P(D|w)P(w)}{P(D)} \propto P(D|w)P(w)$$
@@ -530,21 +530,21 @@ Similarly, in the WTA model,Serena Williams have the highest estimated tennis sk
 
 - `bpc_h2h_pred.stan`: is the model script file. Instead of only using simple Bradley Terry model with bernoulli distribution in a single match,the Stan model data collapse the matches between every pair of players so it had been became the binomial distribution, which is structured as: $y \sim binomial(n,p)$. The main parameters are used in the Stan model:
 
-  * n: is the N trials which is the total number of matches in each pair player.
+  * **$n$**: is the N trials which is the total number of matches in each pair player.
   
-  * y: is the number of success which is the number of times that player1 has won the match in this case. 
+  * **$y$**: is the number of success which is the number of times that player1 has won the match in this case. 
   
   
-  * `lambda`: is the latent variable, representing the ability of a player and had estimated from standard normal distribution. 
+  * **$\lambda$**: is the latent variable, representing the ability of a player and had estimated from standard normal distribution.(($\lambda_{std} \sim N(0,1)$;$\lambda \sim N(0,\lambda_{std}^2)$)) 
   
-  * $h2hz_{player_i,player_j}$: is a matrix which assigns the upper triangular values following standard normal distribution and lower triangular values following normal distribution but it has to be closer to zero which is the effective zero assignment.
+  * **$h2hz_{player_i,player_j}$**: is a matrix which assigns the upper triangular values following standard normal distribution and lower triangular values following normal distribution but it has to be closer to zero which is the effective zero assignment.
   
-  * $h2h_{player_i,player_j}$: is a matrix which assigns the upper triangular values using draws around a shared normal distribution. The lower triangular are the same effects of opposite sign. So basically there is a shared effect for player i, j but it adds or subtracts depending on the order of player and which player we are predicting the chance of a win for. 
+  * **$h2h_{player_i,player_j}$**: is a matrix which assigns the upper triangular values using draws around a shared normal distribution. The lower triangular are the same effects of opposite sign. So basically there is a shared effect for player i, j but it adds or subtracts depending on the order of player and which player we are predicting the chance of a win for. 
   
-  * `p1_win`: is the probability of player1 win with considering the head-to-head effects between each pair of player. In addition, based on the Bradley Terry Model, it has been used logistics function to evaluate the probability of player1 win on the logit scale which is mapped $(0,1) \to R$, so the inverse logistics function should be used to transform the log-odds value to real probability of player1 win which is mapp $R \to (0,1)$ and the final structure for `p1_win` is shown as below:
+  * *p1_win*: is the probability of player1 win with considering the head-to-head effects between each pair of player. In addition, based on the Bradley Terry Model, it has been used logistics function to evaluate the probability of player1 win on the logit scale which is mapped $(0,1) \to R$, so the inverse logistics function should be used to transform the log-odds value to real probability of player1 win which is mapp $R \to (0,1)$ and the final structure for `p1_win` is shown as below:
 
 $$Pr(win_1)=\frac{e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}{1+e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}$$
-
+  
   * `generated quantities`: created a new vector for predictive value via binomial distribution
   
 - `vb` function: is used variational inference for finding optimal posterior distribution. In this case,using VB testing to examine the result whether the model construction and diagnostics is reasonable approximation or not. It can also minimize the difference between actual distribution and approximation distribution and reduce the time consumption, which is a more effective and less uncertain method for checking the Stan model correctly.
