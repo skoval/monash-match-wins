@@ -54,7 +54,7 @@ library(scales)
 
 - .monash-orange2[Main objective:] develop and evaluate different approaches for predicting the win/loss results of tennis matches at the professional level.
 - .monash-orange2[Key goal:] account for the Head-To-Head effect
-- .monash-orange2[Other features:]consider the variation of player's ability in the different surface courts
+- .monash-orange2[Other feature:]consider the variation of player's ability in the different surface courts
 
 ![](images/animated-tennis.gif)
 ---
@@ -250,7 +250,7 @@ where $\delta_{1,0}$ is the H2H effect between player 1 and player 0
 <br>
 <br>
 - Implemented within Stan code model statement
-  - `sampling` function in `rstan`package: computes posterior samples via MCMC(Markov Chain Monte Carlo) method.
+  - `sampling` function in `rstan` package: computes posterior samples via MCMC(Markov Chain Monte Carlo) method.
 
 ---
 # Example  (Nadal VS Federer) `r icon::fontawesome("grin-beam")`
