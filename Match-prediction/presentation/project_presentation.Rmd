@@ -364,7 +364,7 @@ atp_clay%>%
 - Further exploration:
  - Expanding the data set
  - Combing the Surface Factor and Head-to-Head Models
- - Addition factors: player ranking, Elo scores,...
+ - Additional factors: player ranking, Elo scores,...
 
 
 
