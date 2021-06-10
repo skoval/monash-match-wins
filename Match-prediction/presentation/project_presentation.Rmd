@@ -75,7 +75,7 @@ data %>%
                 position = "center")
 ```
 
-- However, the final model data is constructed by filtering the top 100 players from  from atpworldtour.com and wtatennis.com
+- However, the final model data is constructed by filtering the top 100 players from atpworldtour.com and wtatennis.com
   - develop a general framework more quickly by focusing on a relevant but smaller-scale problem.
   - Eg: total number of matches in **`atp`** : $36,000 \to 4,500$
   
