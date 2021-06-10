@@ -351,7 +351,7 @@ atp_clay%>%
 <br>
 <br>
 
-`r icon::fontawesome("smile-wink")` Nadal has won 13 French Opens (the clay grand slam) and has a chance to win his 14th this week
+`r icon::fontawesome("smile-wink")` Nadal has won 13 French Opens (the clay grand slam) and has a chance to win his 14th against with Djokovic this week.
 ---
 # Conclusion: `r icon::fontawesome("hourglass-end")`
 
