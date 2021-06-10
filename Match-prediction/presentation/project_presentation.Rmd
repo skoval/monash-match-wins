@@ -41,6 +41,7 @@ knitr::opts_chunk$set(warning = FALSE,message = FALSE,cache = F)
 library(tidyverse)
 library(here)
 library(kableExtra)
+library(scales)
 
 ```
 
@@ -74,10 +75,9 @@ data %>%
                 position = "center")
 ```
 
-<br>
-
 - However, the final model data is constructed by filtering the top 100 players from  from atpworldtour.com and wtatennis.com
   - develop a general framework more quickly by focusing on a relevant but smaller-scale problem.
+  - Eg: total number of matches in **`atp`** : $36,000 \to 4,500$
   
 ---
 # Head-To-Head `r icon::fontawesome("battle-net")`
@@ -86,22 +86,26 @@ data %>%
   - The player's ability in tennis
   - Other factor: the playing style, familiar with their opponents or psychological impact?
   
-<br>
+
 
 - The sample size of head-to-heads in professional tennis matches is small
-<br>
-<br>
+
+
 ```{r h2h-surface,echo=F,fig.cap="Matches with head to head effect on surface in ATP"}
 atp_surface<-read_csv(here::here("data/atp_surface.csv"))
 
 atp_surface%>%
-   kable(caption = "Matches with head to head effect on surface in ATP") %>%
+	rename(`met=1`=`match=1`,
+				 `met=2`=`match=2`,
+				 `met>=3`=`match>=3`,
+				 `per(met>=3)`=`per(match>=3)`)%>%
+   kable(caption = "The number of matches on different surface in ATP") %>%
    kable_styling(bootstrap_options = c("striped", "border"),full_width = T,position = "center")%>%
    row_spec( 0,bold = T,color = "black",background = "white")%>%
   row_spec( 1:3,bold = T,color = "white",background = "#2875a1")
   
 ```
-  
+
 ---
 # Example `r icon::fontawesome("grin-beam")`
 .cbox[
@@ -128,7 +132,7 @@ atp_match%>%
 ---
 # Approach
 
-The main approaches used in this project are fell into two categories:
+The main approaches used in this project fell into two categories:
 - Paired Comparison Model
   - Bradley-Terry Model
 - Bayesian Paired Comparison Model
@@ -177,27 +181,47 @@ predict(fit,type="response")
 ---
 # Example (Nadal VS Federer) `r icon::fontawesome("grin-beam")`
 
-- The estimated ability between Nadal and Federer
-  - Baseline: Adrian Mannarino
 
-```{r atp-ability,echo=FALSE,fig.width = 8,fig.height = 5,fig.cap="The estimated ability between Nadal and Federer"}
+- The estimated ability in the `ATP`
+  - Baseline: Adrian Mannarino
+<br>
+<br>
+
+<center>
+```{r atp-ability,echo=FALSE,fig.width = 9,fig.height = 6,fig.cap="The estimated ability in each player"}
 atp_abilities<-read_csv(here::here("data/atp_ability.csv"))
 atp_bt_pred<-read_csv(here::here("data/atp_bt_pred.csv"))
 atp_abilities%>%
-  filter(Player=="Rafael Nadal"|Player=="Roger Federer")%>%
-  mutate(Ability=round(Ability,digits = 4),
+	select(Player,Ability)%>%
+	ggplot(aes(Ability))+
+	geom_histogram(binwidth = 0.5)+
+	geom_vline(xintercept = 2,color="red")+
+	ggtitle("The estimated ability between each player")
+
+```
+
+---
+# Example (Nadal VS Federer) `r icon::fontawesome("grin-beam")`
+
+- The estimated ability between Nadal and Federer
+<br>
+<br>
+```{r NF-ability,echo=F}
+ atp_abilities%>%
+   filter(Player=="Rafael Nadal"|Player=="Roger Federer")%>%
+   mutate(Ability=round(Ability,digits = 4),
          SE=round(SE,digits = 4))%>%
-  kable(caption="The estimated ability") %>%
-   kable_styling(bootstrap_options = c("striped", "border"), full_width = T, 
+   kable(caption="The estimated ability") %>%
+    kable_styling(bootstrap_options = c("striped", "border"), full_width = T, 
                   position = "center")%>%
    row_spec( 0,bold = T,color = "black",background = "white")%>%
   row_spec( 1:2,bold = T,color = "white",background = "#2875a1")
 ```
 
 <br>
-
 - The prediction from standard Bradley-Terry model
-
+<br>
+<br>
 ```{r atp-bt-pred,echo=F,fig.cap="The comparison between predicted and actual probability about Nadal wins"}
 atp_bt_pred<-read_csv(here::here("data/atp_bt_pred.csv"))
 
@@ -219,7 +243,10 @@ atp_bt_pred%>%
 - Further extension in Bradley-Terry model, cooperating with head-to-head effect.
 <br>
 <br>
-$P(Win1)= \frac{\exp{(\lambda_1 - \lambda_0)}}{1 + \exp{(\lambda_1 - \lambda_1)}} \to \frac{\exp{(\lambda_1-\lambda_0+h2h_{1,0})}}{1+\exp{(\lambda_{1}-\lambda_{0}+h2h_{1,0})}}$
+$P(Win1)= \frac{\exp{(\lambda_1 - \lambda_0)}}{1 + \exp{(\lambda_1 - \lambda_1)}} \to \frac{\exp{(\lambda_1-\lambda_0+\delta_{1,0})}}{1+\exp{(\lambda_{1}-\lambda_{0}+\delta_{1,0})}}$
+
+<newline>
+where $\delta_{1,0}$ is the H2H effect between player 1 and player 0
 <br>
 <br>
 - Implemented within Stan code model statement
@@ -274,7 +301,7 @@ atp_stan_pred%>%
 ---
 # Mixed effect model
 
-The extension of Bradley-Terry model with surface random effects can be represented as:
+The extension of Bradley-Terry model with surface random effects can be simply represented as:
 
 $\mathrm{Pr}\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i,s})}{exp(\lambda_{i,s})+exp(\lambda_{j,s})};$
 $\lambda_{i,s}=\lambda_{i}+U_{i,s};$ 
@@ -321,7 +348,10 @@ atp_clay%>%
    row_spec( 0,bold = T,color = "black",background = "white")%>%
   row_spec( 1,bold = T,color = "white",background = "#2875a1")
 ```
+<br>
+<br>
 
+`r icon::fontawesome("smile-wink")` Nadal has won 13 French Opens (the clay grand slam) and has a chance to win his 14th this week
 ---
 # Conclusion: `r icon::fontawesome("hourglass-end")`
 
@@ -340,6 +370,28 @@ atp_clay%>%
 
 ---
 ```{r endslide, child="components/endslide.Rmd"}
+```
+
+---
+# Model performace
+
+- Calibration plot
+<br>
+	- Only the first and last bins deviated from 45 degree line, and the rest seemed to fit well.
+	- Unstable situation for the extreme value
+ 
+<center>
+ 
+```{r echo=F,fig.height=5,fig.width=10}
+atp_stan_cali<-read_csv(here("data/atp_stan_cali.csv"))
+ggplot(atp_stan_cali,aes(mean_pred,mean_act))+
+  geom_line()+
+  geom_abline(slope = 1, intercept = 0, linetype = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  theme_bw()+
+  xlab("Estimated probability")+ylab("Actual probability")+
+  ggtitle("Calibration curve with H2H effect model in ATP")
+
 ```
 
 ---
@@ -382,13 +434,12 @@ given a set of match outcomes D and ability of each player $\lambda$
 ---
 # Head-To-Head effect 
 
-- In general, the next prediction outcome: 
-$P(r^{n+1}_{ij}=1|\lambda_{i};\lambda_{j})$ where i beats j given the historical data will be simply inferred as:
-$\sigma(\lambda_{i}-\lambda_{j})$
+- In general, the next prediction outcome: $r^{n+1}_{ij}$ is take the expectation of $P(r^{n+1}_{ij}|\lambda_{i};\lambda_{j})$ with the posterior distribution $P(\lambda|D)$ and Using Bayesian inference to approximate the full posterior distribution.
 - Implement in Stan with binomial distribution:
 <center>
 $$y \sim binomial(n,p)$$
-$$P_{win_1}=\frac{\exp{(\lambda_1-\lambda_0+h2h_{1,0})}}{1+\exp{(\lambda_{1}-\lambda_{0}+h2h_{1,0})}}$$
+$$P_{win_1}=\frac{\exp{(\lambda_1-\lambda_0+\delta_{1,0})}}{1+\exp{(\lambda_{1}-\lambda_{0}+\delta_{1,0})}}$$
 $$y_{pred}\sim binomial(n,P_{win_1})$$ 
 where $y$ is the number of matches of player1 wins
     
+

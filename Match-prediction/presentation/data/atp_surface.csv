@@ -1,4 +1,4 @@
-Surface,met one time,met two time,met more than 3 times
-Clay,9236,1594,803
-Grass,4223,312,80
-Hard,14483,3628,2571
+Surface,match,match=1,match=2,match>=3,per(match>=3)
+Clay,11633,9236,1594,803,6.90%
+Grass,4615,4223,312,80,1.73%
+Hard,20682,14483,3628,2571,12.43%
