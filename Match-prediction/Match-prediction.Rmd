@@ -55,7 +55,7 @@ wta_results%>%
 
 # Introduction
 
-In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis as one of the appealing sports is chosen in this project. The purpose of this project is to study the performance of different prediction methods in men's and women's professional tennis matches. The measure is used to build up the prediction model based on historical data in the last decade. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models do not only focus on the prediction results in the tennis matched, but also consider the head to head effect where would affect the performance in some players. In addition, the effects of surface type about the variation of players' ability would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players.  
+In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis as one of the appealing sports,is well-suited for forecasting research because historical match results are publicly available for most pro matches so it is chosen in this project. The purpose of this project is  to develop a method for predicting match outcomes and accounting for player-to-player matchup effects in men's and women's professional tennis matches. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models do not only focus on the prediction results in the tennis matched, but also consider the effect of player head-to-heads. In addition, the effects of surface type about the variation of players' ability would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players.  
 
 
 # The motivation of this project
@@ -66,8 +66,11 @@ The main objective of the project is to develop and evaluate different approache
 # Data description {#data}
 
 
-There are two data sets such as `atp_results` and `wta_results`used on this analysis report, and the two data sets consist of approximately 36,000 matches information from 2011-01-01 to 2020-01-23 in ATP tour and WTA tour. Both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures. 
-The table \@ref(tab:data-structure) summarizes the key information which is contained about each match in the data. The data sets also contain further side information such as player id, date of tennis tournaments, Name of the match, the around in tennis match and ect. The full list is omitted as none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project. Theoretically, the full data sets should be used for data modeling but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem.
+There are two data sets `atp_results` and `wta_results`used on this analysis report, and the two data sets consist of approximately 36,000 matches information from 2011-01-01 to 2020-01-23 in ATP tour and WTA tour. Both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures. 
+
+The table \@ref(tab:data-structure) summarizes the key information which is contained about each match in the data. The data sets also contain further information such as player id, date of tennis tournaments, Name of the match, the around in a tennis match and ect. The full list is omitted as the prediction model is more concerned about the forecasting result of tennis matches and none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project.
+
+Theoretically, the full data sets should be used for data modeling, but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem. Also, one of the reason for the top 100 player sample is to develop a general framework more quickly by focusing on a relevant but smaller-scale problem. 
 
 
 ```{r data-structure, warning=FALSE, message=FALSE}
@@ -89,55 +92,6 @@ data %>%
 
 # Head to Head effect Analysis
 
-Head to head means the direct competition between two players. In this project, head-to-head effect indicates that the matchup effect of two specific players meeting in the matches. This is not only to consider the player's ability in tennis skills such as the talented-levels, but more importantly to detect whether there is a certain effect between the two players such as one player might have over a specific opponent that goes beyond what their ability would predict, factors like playing style, familiar with their opponents even the psychological impact.
-
-```{r match-most,fig.cap="The players won more than 200 matches in the last ten years"}
-
-#Use the words cloud to briefly introduce who has won the most of matches in her/his career, which the total matches for players are above 200
-atp_winner_freq<-atp_results%>%
-  group_by(player0)%>%
-  summarise(freq= n())%>%
-  arrange(desc(freq))%>%
-  filter(freq>=200)%>%
-  ungroup()
-
-freq1<-atp_winner_freq%>%
-  mutate(angle = 90 * sample(c(0, 1), n(), replace = TRUE, prob = c(60, 40)))%>%
-ggplot(aes(label = player0, size = freq,angle=angle,
-            col=factor(sample.int(10, nrow(wta_winner_freq), replace = TRUE)))) + 
-  geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
-                      grid_size = 1, eccentricity = .9)+
-  scale_size_area(max_size = 4)+
-  scale_color_brewer(palette = "Paired", direction = -1)+
-  theme_void()+
-  ggtitle("ATP data")
-
-wta_winner_freq<-wta_results%>%
-  group_by(player0)%>%
-  summarise(freq= n())%>%
-  arrange(desc(freq))%>%
-  filter(freq>=200)%>%ungroup
-
-freq2<-wta_winner_freq%>%
-   mutate(angle = 90 * sample(c(0, 1), n(), replace = TRUE, prob = c(60, 40)))%>%
-ggplot(aes(label = player0, size = freq,angle=angle,
-           col=factor(sample.int(10, nrow(wta_winner_freq), replace = TRUE)))) + 
-  geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
-                      grid_size = 1, eccentricity = .9)+
-  scale_size_area(max_size = 4)+
-  scale_color_brewer(palette = "Paired", direction =1)+
-  theme_void()+
-  ggtitle("WTA data")
-
-ggarrange(freq1,freq2,ncol = 2)
-
-```
-
-
-The figure \@ref(fig:match-most) shows the male and female players who have won more than 200 matches are in the last ten years. Novak Djokovic, as the current number one male player in the world rankings, has won more than 500 matches over the past last decay, and Roger Ferrer and Rafael Nadal who are the current top 10 players in the world, winning more than 450 matches. On the other hand, Caroline Wozniacki was the top 1 female players between 2010 and 2012, has won more than 370 matches in the last ten years. 
-
-## Evaluating the head to head effect in each tier
-
 ```{r order-player-name}
 atp_results%>%
 	dplyr::mutate(
@@ -149,6 +103,62 @@ wta_results%>%
 		Player0 = ifelse(player0 <= player1, player0, player1), # Make player0 first alphabetically
 		Player1 = ifelse(player0 <= player1, player1, player0)
 	) ->wta_results
+
+```
+
+```{r h2h-function}
+h2h_count<-function(data,player0,player1){
+  data%>%
+    group_by(Player0, Player1) %>%
+	dplyr::summarise(	n = n(),y = sum(Player0 == player0),.groups = "drop")
+}
+```
+
+Head to head means the direct competition between two players. In this project, head-to-head effect indicates that the matchup effect of two specific players meeting in the matches. This is not only to consider the player's ability in tennis skills such as the talented-levels, but more importantly to detect whether there is a certain effect between the two players such as one player might have over a specific opponent that goes beyond what their ability would predict, factors like playing style, familiar with their opponents even the psychological impact.
+
+On the other hand, small sample size is typical of head-to-head effects in professional tennis. From the figure \@ref(fig:h2h-match) shows the players who have met each other more than 10 times in the past decade. Only a few high ranked players met each other frequently and the rest only meet a few times. In the ATP data, Djokovic met Nadal 29 times, as the current number one and third male player in the world rankings. It is clear that it has fewer players who have met each other more than 10 times in the WTA data. The players who faced each other most often are Serena and Azarenka,which have met 15 times.
+
+```{r h2h-match,fig.cap="The players who have met each other more than 10 times"}
+
+h2h_count(atp_results,player0,player1)%>%
+  rename(total_count=n,
+         p0_count=y)%>%
+  arrange(-total_count)%>%
+  filter(total_count>=10)%>%
+  mutate(Player=paste0(Player0,":",Player1))%>%
+  select(Player,total_count)->atp_full_h2h
+ 
+h2h_count(wta_results,player0,player1)%>%
+  rename(total_count=n,
+         p0_count=y)%>%
+  arrange(-total_count)%>%
+  filter(total_count>=10)%>%
+  mutate(Player=paste0(Player0,":",Player1))%>%
+  select(Player,total_count)->wta_full_h2h
+
+freq1<-atp_full_h2h%>%
+  mutate(angle = 90 * sample(c(0, 1), n(), replace = TRUE, prob = c(60, 40)))%>%
+ggplot(aes(label = Player, size = total_count,angle=angle,
+            col=factor(sample.int(10, nrow(atp_full_h2h), replace = TRUE)))) + 
+  geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
+                      grid_size = 1, eccentricity = .9)+
+  scale_size_area(max_size = 3)+
+  scale_color_brewer(palette = "Paired", direction = -1)+
+  theme_void()+
+  ggtitle("ATP data")
+
+freq2<-wta_full_h2h%>%
+  mutate(angle = 90 * sample(c(0, 1), n(), replace = TRUE, prob = c(60, 40)))%>%
+ggplot(aes(label = Player, size = total_count,angle=angle,
+            col=factor(sample.int(10, nrow(wta_full_h2h), replace = TRUE)))) + 
+  geom_text_wordcloud(rm_outside = TRUE, max_steps = 1,
+                      grid_size = 1, eccentricity = .9)+
+  scale_size_area(max_size = 2)+
+  scale_color_brewer(palette = "Paired", direction = -1)+
+  theme_void()+
+  ggtitle("ATP data")
+
+ggarrange(freq1,freq2,ncol = 2)
 ```
 
 
@@ -166,99 +176,119 @@ surface_count<-function(data,player0,player1,Surface){
 ```
 
 
-
-However, tennis sports is like a pyramid, with the size of the competitive pool getting lower when the players go upward the tournament tier as the stronger players will stay until the end. In this case,if there are many cases of player-opponent matchups with a single match, this will affect the accuracy of estimations of the head-to-head effects and bring all the effects closer to zero that would be the case with a less sparse sample. 
-
-Therefore, from the table \@ref(fig:atp-tier),having played more than 3 matches against an opponent is an unusually long history compared to the normal matches. In the `atp` data, there are four tier groups and ATP WorldTour 250 has most of matches records which is the lowest tier of annual men's tennis tournaments on the main ATP Tour. The player-opponent with more than 3 matches accounted for 33.28% occurred in the ATP WorldTour 250, and 40.75% occurred in the Matser1000. It is obviously that the number of matches against the same opponent will be less and less in each tier especially in ATP WorldTour 500. A similar situation occurs in `wta` data.
-
-Based on the table \@ref(fig:wta-tier) shows that less than chance of playing more than 2 or 3 games against the same opponent happened in all tiers. It is worth noting that WTA Tour will rename its tournaments in 2021 which will simplify the understanding of the structure of the tour. Therefore, the premier category become WTA 1000s and 500s and international category become WTA 250s, much like the ATP tour tournaments. In addition, 125K serier is like the challenger level in ATP which is the entry-level for tour tournaments. But from the table data, the number of matches occurred in the 125K Series is the lowest, suggesting that players at the 125K Series will not often build up substantial head-to-heads against other players on the tour. According to the data from these two tables, it indicates that head-to-head matches are infrequent and that the number of matches in each tier that involve player-opponent matchup effects in the long history is very small.
+## Evaluating the head to head effect in each tier
 
 
+Additionally, tennis sports is like a pyramid, with the size of the competitive pool getting lower when the players go upward the tournament tier as the stronger players will stay until the end. In this case,if there are many cases of player-opponent matchups with a single match, this will affect the accuracy of estimations of the head-to-head effects and bring all the effects closer to zero that would be the case with a less sparse sample. 
 
-```{r atp-tier,fig.cap="The number macthes with h2h effect in each tier in ATP"}
+Therefore, from the figure \@ref(fig:atp-tier-plot),it displays the number of matched with different times of meeting in each tier in the ATP data. Clearly, having played more than 3 matches against an opponent is an unusual long history compared to the normal matches. In the ATP data, there are four tier groups and ATP WorldTour 250 has most of matches records which is the lowest tier of annual men's tennis tournaments on the main ATP Tour. In the ATP Matser1000,there are 753 matches among the players who have met more than three time each other, and only 615 matches have taken place in the ATP WorlTour250. It is obviously that the number of matches against the same opponent will be less and less in each tier especially in ATP WorldTour 500. 
+
+A similar situation occurs in WTA data. Based on the plot \@ref(fig:wta-tier-plot) shows that less than chance of playing more than 2 or 3 games against the same opponent happened in all tiers. It is worth noting that WTA Tour will rename its tournaments in 2021 which will simplify the understanding of the structure of the tour. Therefore, the premier category become WTA 1000s and 500s and international category become WTA 250s, much like the ATP tour tournaments. In addition, 125K serier is like the challenger level in ATP which is the entry-level for tour tournaments. But from the table data, the number of matches occurred in the 125K Series is the lowest, suggesting that players at the 125K Series will not often build up substantial head-to-heads against other players on the tour. According to the data from these two tables, it indicates that head-to-head matches are infrequent and that the number of matches in each tier that involve player-opponent matchup effects in the long history is very small.
+
+
+```{r atp-tier-plot,fig.cap="The number of matches for players met in different number of times in ATP"}
 tier_count(atp_results,player0,player1,Tier)%>%
-  group_by(Tier)%>%summarise(`match`=sum(n))%>%
+  filter(n==1)%>%group_by(Tier)%>%summarise(`match`=sum(n))%>%
   left_join(tier_count(atp_results,player0,player1,Tier)%>%
               filter(n==2)%>%group_by(Tier)%>%summarise(`match`=sum(n)),by=c('Tier'='Tier'))%>%
    left_join(tier_count(atp_results,player0,player1,Tier)%>%
               filter(n>=3)%>%group_by(Tier)%>%summarise(`match`=sum(n)),by=c('Tier'='Tier'))%>%
-  rename(match=match.x,
-         `match=2`=match.y,
-         `match>=3`=match)%>%
-  mutate(`per(match>=3)`=percent(`match>=3`/sum(`match>=3`)))->atp_tier
+  rename(`met 1 time`=match.x,
+         `met 2 times`=match.y,
+         `met 3+ times`=match)%>%
+  pivot_longer(`met 1 time`:`met 3+ times`,names_to="Players meet",values_to="value")->atp_tier
 
-atp_tier_out = as.htmlwidget(formattable(atp_tier,
-            list(`per(match>=3)` = color_bar("#BDD9EC"))))
-                # `per(match=2)` = color_bar("#FA614B") )))
-atp_tier_out $dependencies = c(atp_tier_out $dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
-atp_tier_out 
+atp_tier%>%
+  ggplot(aes(x=`Players meet`,y=value,fill=Tier))+
+  geom_col(position="dodge2")+
+  theme_bw(base_size = 12) + 
+  ggtitle("The number of matches for players met in each tier in ATP")+
+  geom_text(aes(label=value), vjust=0, hjust=0.5, position = position_dodge(width = 1),size=3)+
+  xlab("Number of times players meet")+
+  ylab("Count")
+
 ```
 
-```{r wta-tier,fig.cap="The number macthes with h2h effect in each tier in ATP"}
+```{r wta-tier-plot,fig.cap="The number of matches for players met in different number of times in WTA"}
+
 tier_count(wta_results,player0,player1,Tier)%>%
-  group_by(Tier)%>%summarise(`match`=sum(n))%>%
+  filter(n==1)%>%group_by(Tier)%>%summarise(`match`=sum(n))%>%
   left_join(tier_count(wta_results,player0,player1,Tier)%>%
               filter(n==2)%>%group_by(Tier)%>%summarise(`match`=sum(n)),by=c('Tier'='Tier'))%>%
    left_join(tier_count(wta_results,player0,player1,Tier)%>%
               filter(n>=3)%>%group_by(Tier)%>%summarise(`match`=sum(n)),by=c('Tier'='Tier'))%>%
-  rename(match=match.x,
-         `match=2`=match.y,
-         `match>=3`=match)%>%
-  mutate(`per(match>=3)`=percent(`match>=3`/sum(`match>=3`)))->wta_tier
+   rename(`met 1 time`=match.x,
+         `met 2 times`=match.y,
+         `met 3+ times`=match)%>%
+  pivot_longer(`met 1 time`:`met 3+ times`,names_to="Players meet",values_to="value")->wta_tier
 
-wta_tier_out  = as.htmlwidget(formattable(wta_tier,
-            list(`per(match>=3)` = color_bar("#BDD9EC"))))
-                # `per(match=2)` = color_bar("#FA614B") )))
-wta_tier_out$dependencies = c(wta_tier_out$dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
-wta_tier_out
+wta_tier%>%
+  ggplot(aes(x=`Players meet`,y=value,fill=Tier))+
+  geom_col(position="dodge2")+
+  theme_bw(base_size = 12) + 
+  ggtitle("The number of matches for players met in each tier in WTA")+
+  geom_text(aes(label=value), vjust=0, hjust=0.5, position = position_dodge(width = 1),size=3)+
+  xlab("Number of times players meet")+
+  ylab("Count")
+
 ```
+
 
 ## Evaluating the H2H effect in each surface
 
-Similarly, the table \@ref(fig:atp-surface) and \@ref(fig:wta-surface) represent the number of tennis matches occurred in different surface type in the last decay. Obviously, the majority of matches, and even matchups more than three times, take place on hard courts, where movement tends to be medium to fast because the court absorbs little energy and players are able to use a variety of spins during the match. In addition, Clay court is the second highest frequency playing surface and it examines the return ability of players as the balls bounce relatively high and lose a lot of initial velocity on contact with the water. Moreover, the number of matches for more than three times with same opponent are small in these two table, suggesting that the number of matches in head to head effect is relatively small even in ten years record.
+Similarly, the figure \@ref(fig:atp-surface) and \@ref(fig:wta-surface) represent the number of tennis matches occurred in different surface type in the last decay. Obviously, the majority of matches, and even matchups more than three times, take place on hard courts, where movement tends to be medium to fast because the court absorbs little energy and players are able to use a variety of spins during the match. In addition, Clay court is the second highest frequency playing surface and it examines the return ability of players as the balls bounce relatively high and lose a lot of initial velocity on contact with the water. Moreover, the number of matches for more than three times with same opponent are small in these two table, suggesting that the number of matches in head to head effect is relatively small even in ten years record.
 
 
 
 
-```{r atp-surface,fig.width=10,fig.height=5,fig.cap="Matches with head to head effect on surface in ATP"}
+```{r atp-surface,fig.cap="The number of matches for players met in different number of times in each surface in ATP"}
 
 #calculate the percentage of h2h matches in each surface for atp results
 surface_count(atp_results,player0,player1,Surface)%>%
+  filter(n==1)%>%
   group_by(Surface)%>%summarise(`match`=sum(n))%>%
   left_join(surface_count(atp_results,player0,player1,Surface)%>%
               filter(n==2)%>%group_by(Surface)%>%summarise(`match`=sum(n)),by=c('Surface'='Surface'))%>%
    left_join(surface_count(atp_results,player0,player1,Surface)%>%
               filter(n>=3)%>%group_by(Surface)%>%summarise(`match`=sum(n)),by=c('Surface'='Surface'))%>%
-  rename(match=match.x,
-         `match=2`=match.y,
-         `match>=3`=match)%>%
-  mutate(`per(match>=3)`=percent(`match>=3`/sum(`match>=3`)))->atp_surface
+  rename(`met 1 time`=match.x,
+         `met 2 times`=match.y,
+         `met 3+ times`=match)%>%
+  pivot_longer(`met 1 time`:`met 3+ times`,names_to="Players meet",values_to="value")->atp_surface
 
-atp_surface_out = as.htmlwidget(formattable(atp_surface,
-            list(`per(match>=3)` = color_bar("#BDD9EC"))))
 
-atp_surface_out $dependencies = c(atp_surface_out $dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
-atp_surface_out
+atp_surface%>%
+  ggplot(aes(x=`Players meet`,y=value,fill=Surface))+
+  geom_col(position="dodge2")+
+    theme_bw(base_size = 12) + 
+  ggtitle("The number of matches for players met in each surface in ATP")+
+  geom_text(aes(label=value), vjust=0, hjust=0.5, position = position_dodge(width = 1),size=3)+
+  xlab("Number of times players meet")+
+  ylab("Count")
 ```
 
-```{r wta-surface,fig.cap="Matches with head to head effect on surface in WTA"}
+```{r wta-surface,fig.cap="The number of matches for players met in different number of times in each surface in WTA"}
 
 #calculate the percentage of h2h matches in each surface for atp results
 surface_count(wta_results,player0,player1,Surface)%>%
-  group_by(Surface)%>%summarise(`match`=sum(n))%>%
+  filter(n==1)%>%group_by(Surface)%>%summarise(`met 1 time`=sum(n))%>%
   left_join(surface_count(wta_results,player0,player1,Surface)%>%
-              filter(n==2)%>%group_by(Surface)%>%summarise(`match=2`=sum(n,na.rm=TRUE)),by=c('Surface'='Surface'))%>%
+              filter(n==2)%>%group_by(Surface)%>%summarise(`met 2 times`=sum(n,na.rm=TRUE)),by=c('Surface'='Surface'))%>%
    left_join(surface_count(wta_results,player0,player1,Surface)%>%
-              filter(n>=3)%>%group_by(Surface)%>%summarise(`match>=3`=sum(n,na.rm=TRUE)),by=c('Surface'='Surface'))->wta_surface
+              filter(n>=3)%>%group_by(Surface)%>%summarise(`met 3+ times`=sum(n,na.rm=TRUE)),by=c('Surface'='Surface'))->wta_surface
 wta_surface[is.na(wta_surface)] = 0
-wta_surface%>%
-  mutate(`per(match>=3)`=percent(`match>=3`/sum(`match>=3`)))->wta_surface
 
-wta_surface_out = as.htmlwidget(formattable(wta_surface,
-            list(`per(match>=3)` = color_bar("#BDD9EC"))))
-                # `per(match=2)` = color_bar("#FA614B") )))
-wta_surface_out $dependencies = c(wta_surface_out $dependencies, htmlwidgets:::widget_dependencies("sparkline", "sparkline"))
-wta_surface_out
+
+wta_surface%>%
+  pivot_longer(`met 1 time`:`met 3+ times`,names_to="Players meet",values_to="value")%>%
+  ggplot(aes(x=`Players meet`,y=value,fill=Surface))+
+  geom_col(position="dodge2")+
+    theme_bw(base_size = 12) + 
+  ggtitle("The number of matches for players met in each surface in WTA")+
+  geom_text(aes(label=value), vjust=0, hjust=0.5, position = position_dodge(width = 1),size=3)+
+  xlab("Number of times players meet")+
+  ylab("Count")
+
 ```
 
 In the following section, a variety of prediction methods will be introduced formally, and evaluated the estimates for parameters of the model and model performance.
@@ -272,16 +302,16 @@ The main approaches to tennis match prediction in this project fall into two cat
 
 Pairwise comparison is the process of comparing entities in pairs to determine which one has a better chance of winning. One of the famous and more effective method for establishing pairwise comparison is Bradley-Terry Model[@bradley1952rank], applying in the contest between two players in tennis[@mchale2011bradley].
 
-Let $y_{ij,t}$ be the outcome of a tennis match that is played between player i and player j at time t. We assume that we have information about K different players over a time period of length n (i.e.: i, j =1.... ,K and t =1..., n). The outcome ${y_{ij,t} =1}$ if player i wins the match at time t whereas the outcome ${y_{ij,t} =0}$ if player j wins the match at time t. Therefore, the outcomes about $y_{ij,t}$ are binary response value.
+Let $y_{ij}$ be the outcome of a tennis match that is played between player i and player j at time t. We assume that we have information about K different players over a time period of length n (i.e.: i, j =1.... ,K). The outcome ${y_{ij} =1}$ if player i wins the match at time t whereas the outcome ${y_{ij} =0}$ if player j wins the match at time t. Therefore, the outcomes about $y_{ij}$ are binary response value.
 
-The conditional probability that ${y_{ij,t} =1}$ is given by:
-$$P_{ij,t}=P(y_{ij,t}=1|\delta_{ij,t})=\frac{exp(\delta_{ij,t})}{1+exp(\delta_{ij,t})};$$
-$$\delta_{ij,t}=\lambda_{i,j}-\lambda_{j,t}$$
-where$\lambda_{i,t}$ represents the skill level of player i at time t and $\lambda_{j,t}$ represents the skill level of player j at time t. The conditional probability of ${y_{ij,t} =0}$ is instead equal to $1-P_{ij,t}$.
+The conditional probability that ${y_{ij} =1}$ is given by:
+$$P_{ij}=P(y_{ij}=1|\delta_{ij})=\frac{exp(\delta_{ij})}{1+exp(\delta_{ij})};$$
+$$\delta_{ij}=\lambda_{i}-\lambda_{j}$$
+where$\lambda_{i}$ represents the skill level of player i and $\lambda_{j}$ represents the skill level of player j. The conditional probability of ${y_{ij} =0}$ is instead equal to $1-P_{ij}$.
 
 On the other hand, this model can be alternatively expressed in the following logit-linear way, which can be reduce the model to logistics regression on pairs of individuals:
 $$\mathrm{P}(\left[ i \mbox{ beats } j \right]=logit(P(i>j))=log(\frac{P(i>j)}{1-P(i>j)})=\lambda_{i}-\lambda_{j}$$
-where $\lambda_{i}$=log$\alpha_{i}$ for all i and is the respective skill parameter of the players. Optimization can be used to jointly solve for skills parameters of all players based on a fixed period of historical results. Match winning probabilities can then be derived based on the same i.i.d(independent identifying distributed) assumption used in point models[@klaassen2001points]. Therefore, based on the IID assumption for all contests,the parameters $\lambda_{i}$ can be estimated by maximum likelihood using `BradleyTerry2` package for generalized linear models[@turner2012bradley]. 
+where $\lambda_{i}$=$log(\alpha_{i})$ for all i and $\alpha_i;\alpha_j$ are the  positive-valued parameters,respectively skill parameter of the players. Optimization can be used to jointly solve for skills parameters of all players based on a fixed period of historical results. Match winning probabilities can then be derived based on the same i.i.d(independent identifying distributed) assumption used in point models[@klaassen2001points]. Therefore, based on the IID assumption for all contests,the parameters $\lambda_{i}$ can be estimated by maximum likelihood using `BradleyTerry2` package for generalized linear models[@turner2012bradley]. 
 
 The `BradleyTerry2` package provides a more flexible user interface to allow a wider range of models to be fitted in the data and allows the inclusion of simple random effects, where the $\lambda_{i}$ can be related to explanatory variable via a linear predictor of the form:
 $$\lambda_{i}=\sum_{r=1}^{p}{\beta_{r}x_{ir}+U_{i}}$$
@@ -293,18 +323,20 @@ The inclusion of the prediction error $U_i$ allows for variability between playe
 
 **1. Simple Bradley Terry model: **
 
-Bayesian inferences are based on a posterior probability density distribution (further referred to as the posterior) regarding the parameters, given the data collected. This allows for a more intuitive interpretation of parameters uncertainty. Therefore, the Bayesian model can be broken down as consisting of:
+Bayesian inferences are based on a posterior probability density distribution (further referred to as the posterior) regarding the parameters, given the data collected. This allows for a more intuitive interpretation of parameters uncertainty. Basically, the Bayesian model can be broken down as consisting of:
 
-* Observed variables: The tennis matches outcomes are given. A single outcome will be given the notation r and a set of outcomes D.
+* Observed variables: The tennis matches outcomes are given. A single outcome will be given the notation $r$ and a set of outcomes $D$.
 
-* prior probability: P(w). A standard normal prior is used in this project($w_{std} \sim N(0,1)$;$w \sim N(0,w_{std}^2)$)
+* Unobserved variables. These are the parameters of the model itself which are chosen as part of the model design. These will be represented generally by the notation $w$.
+
+* prior probability: $P(w)$. A standard normal prior is used in this project ($w_{std} \sim N(0,1)$;$w \sim N(0,w_{std}^2)$)
 
 The future outcomes can be predicted based on the relationship $P(r|w)$ if given the parameters of the model. However,since the parameters are unknown, the future value become inferred based on the historical data. For some data D, on a set of n outcomes, the posterior probability of the given model parameters can be expressed as:
 $$P(w|D)=\frac{P(D|w)P(w)}{P(D)} \propto P(D|w)P(w)$$
 where $P(D|w)$ is the likelihood of the model given the data and $P(D)$ is marginal likelihood of the model found through normalisation. Under the assumption that outcomes are independent identified distributed, the likelihood can be expressed as:
 $$P(D|w)=\prod_{i = 1}^{N} P(r^i|w)$$ 
 
-Moreover, for the prediction with new match $r^{n+1}$,it can be made by taking the expectation of $P(r^{n+1}|w)$ with respect to the posterior distribution $P(w|D)$. One of the common method to achieve the predicted value is used an approximate inference technique to approximate the full posterior distribution. In this case, it refers to Bayesian approach. 
+Moreover, for the prediction with new match $r^{n+1}$,it can be made by taking the expectation of $P(r^{n+1}|w)$ with respect to the posterior distribution $P(w|D)$. However, for the models in this project, determining this expectation and the normalisation constant of the posterior distribution $P(w|D)$ requires doing integrals which are intractable. One of the common method to achieve the predicted value is used an approximate inference technique like Bayesian approach to approximate the full posterior distribution.
 
 Applying Bayesian method in Bradley Terry Model[@peterspredicting], the extension formula is shown as below:
 
@@ -315,11 +347,11 @@ where$r_{ij}=1$ indicates a win for player i against player j,$\lambda_{i}$ and 
 For the some of data consisting of a set of match outcomes $D={r^1,r^2...r^n}$ for a set of players $M ={1,2,...,m}$ with ability $\lambda={\lambda_{1},\lambda_{2},...,\lambda_{m}}$,the likelihood of the model given the data can be expressed as:
 $$P(D|\lambda)=\prod_{i = 1}^{N} \sigma(\lambda_{a}^i-\lambda_{b}^i)$$ 
 
-In this project, the $\lambda$ will be estimated as the prior probability with standard normal distribution ($\lambda_{std} \sim N(0,1)$;$\lambda \sim N(0,\lambda_{std}^2)$ and then added the observed match outcomes constantly to evaluate if the model strengthens or weakens the prior probability, so that the estimated posterior probability which will bet closer to actual value. After revising the posterior probabilities, the next match predictive outcome $P(r^{n+1}_{ij}=1|w)$ will be inferred as: $\sigma(\lambda_{i}-\lambda_{j})$ through posterior predictive distribution with Maximum a posteriori estimation(MAP) if given the previous matches data $r^n_{ij}$
+In this project, the $\lambda$ will be estimated as the prior probability with standard normal distribution ($\lambda_{std} \sim N(0,1)$;$\lambda \sim N(0,\lambda_{std}^2)$ and then added the observed match outcomes constantly to evaluate if the model strengthens or weakens the prior probability, so that the estimated posterior probability which will bet closer to actual value. After revising the posterior probabilities, the next match predictive outcome $P(r^{n+1}_{ij}=1|\lambda)$ will be inferred as: $\sigma(\lambda_{i}-\lambda_{j})$ through posterior predictive distribution with Maximum a posteriori estimation(MAP) where the expectation of $P(\lambda|D)$ is the $\lambda$ if given the previous matches data $r^n_{ij}$
 
 **2. Mixed effect model in Stan (Surface random effect ): **
 
-Böckenholt (2001)[@bockenholt2001hierarchical] decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $\lambda_{i,s}$ and $\lambda_{j,s}$ estimates the average log ability of the player. The random effects term is represented by $U_{i,s}$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
+@bockenholt2001hierarchical decomposed the paired comparison model into fixed and a random effect components. The random effects component estimates the subject variation (given S subjects) in each item, while the fixed effect component such as $\lambda_{i,s}$ and $\lambda_{j,s}$ estimates the average log ability of the player. The random effects term is represented by $U_{i,s}$, where i refers to the player being judged and s to the subject. The Bayesian Bradley-Terry model with random effects can be represented as:
 $$\mathrm{Pr}\left[ i \mbox{ beats } j \right]=\frac{exp(\lambda_{i,s})}{exp(\lambda_{i,s})+exp(\lambda_{j,s})};$$
 $$\lambda_{i,s}=\lambda_{i}+U_{i,s};$$
 
@@ -334,13 +366,18 @@ In this report, $s$ represents different types of surface so $U_{std}$ represent
 # Impelementation
 
 This section discusses the implementation of three different prediction models and is structured as follows:
+
 - Data re-preparation: briefly discusses the new model data about ranking data with top 100 players.
+
 - Model process: mainly introduces the process of modeling in each prediction model. 
+
 - Model output analysis: discusses the findings and results from the models.
 
 ## Data re-preparation
 
-For avoiding the technical issue such as the system crush, overload and time consumption, a subset data with selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full datasets with ATP and WTA matches record. Therefore, `atp_ranking` and `wta_ranking` were collected from the official websites, atpworldtour.com and wtatennis.com respectively, with the rankings of the top 100 women and 100 men and they joined with the full dataset so the players were limited in the ranking of top 100 in both male and female for the final model data and it will be used for whole modeling parts.
+For avoiding the technical issue such as the system crush, overload and time consumption, a subset data with selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full dataset with ATP and WTA matches record. One of the reason for choosing the top 100 players is to develop a general framework more quickly by focusing on a relevant but smaller-scale problem. 
+
+Therefore, `atp_ranking` and `wta_ranking` were collected from the official websites, atpworldtour.com and wtatennis.com respectively, with the rankings of the top 100 women and 100 men and they joined with the full dataset so the players were limited in the ranking of top 100 in both male and female for the final model data and it will be used for whole modeling parts.
 
 
 ```{r read-tennis-ranking}
@@ -504,9 +541,9 @@ Similarly, in the WTA model,Serena Williams have the highest estimated tennis sk
   
   * $h2h_{player_i,player_j}$: is a matrix which assigns the upper triangular values using draws around a shared normal distribution. The lower triangular are the same effects of opposite sign. So basically there is a shared effect for player i, j but it adds or subtracts depending on the order of player and which player we are predicting the chance of a win for. 
   
-  * `p1_win`: is the probability of player1 win with considering the head-to-head effects between each pair of player. In addition, based on the Bradley Terry Model, it has been used logistics function to evaluate the probability of player1 win($log_odd_players$) on the logit scale which is mapped $(0,1) \to R$, so the inverse logistics function should be used to transform the $log_odd_players$ to real probability of player1 win which is mapp $R \to (0,1)$ and the final structure for `p1_win` is shown as below:
+  * `p1_win`: is the probability of player1 win with considering the head-to-head effects between each pair of player. In addition, based on the Bradley Terry Model, it has been used logistics function to evaluate the probability of player1 win on the logit scale which is mapped $(0,1) \to R$, so the inverse logistics function should be used to transform the log-odds value to real probability of player1 win which is mapp $R \to (0,1)$ and the final structure for `p1_win` is shown as below:
 
-$$Pr(player1\quad win)=\frac{e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}{1+e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}$$
+$$Pr(win_1)=\frac{e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}{1+e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}$$
 
   * `generated quantities`: created a new vector for predictive value via binomial distribution
   
@@ -598,7 +635,7 @@ To examine the model fitting, the MCMC parameter diagnostics should be built up 
   - `n_eff` measures the effective sample size of that particular parameter which is the sum of the effectively independent sampling iterations across all chains(from a total 4000). The smaller `n_eff`, the greater the uncertainty associated with the corresponding parameter. If the ratio (`n_eff`/N) less than 0.001,indicating that the estimators are biased and significantly overestimate the true effective sample size(@gelman1992inference). Based on the figure \@ref(fig:check-neff),the distribution of ratio in two Stan models shows most of value are bigger than 0.5, suggesting that most of estimated parameter have better precision and there are no indications of problems in estimates of the effective sample size.
   
 - Rhat: the potential scale reduction statistic
-  - `Rhat` statistic is roughly the ratio of the variance of a parameter when the data is pooled across all of the chains to the within-chain variance so it can helps tell us whether these parameters are so poorly sampled and measures the extent to which chains are reaching different conclusions. The Rhat should be in the range of 0.9 to 1.05 as the more idiosyncratically the chains behave if the Rhat value is far away from 1 (@vehtari2021rank).  Figure \@ref(fig:check-rhat) displays the distribution of Rhat value in two Stan models and most of Rhat value are close to 1, implying that all chains have been converged to the same systematic behavior for a given parameter.
+  - `Rhat` statistic is roughly the ratio of the variance of a parameter when the data is pooled across all of the chains to the within-chain variance so it can helps tell us whether these parameters are so poorly sampled and measures the extent to which chains are reaching different conclusions. @vehtari2021rank stated the Rhat should be in the range of 0.9 to 1.05 as the more idiosyncratically the chains behave if the Rhat value is far away from 1.  Figure \@ref(fig:check-rhat) displays the distribution of Rhat value in two Stan models and most of Rhat value are close to 1, implying that all chains have been converged to the same systematic behavior for a given parameter. So, the R hats look quite promising overall and suggest that the target posterior has been reached for the model parameters.
   
 ```{r check-neff,fig.cap="Evalute effective sample size in stan model"}
 
@@ -931,7 +968,7 @@ DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',class 
   formatRound(columns=c('Mean'), digits=4)
 ```
 
-From the table \@ref(fig:ability-atp-surface),it shows the most highest estimated ability of different players in the particular surface. It is not surprising to see that the estimated ability for Daniil Medvedev is the highest in the Hard court. As the matchup effect table has been shown before, Daniil Medvedev is in the fourth spot who has more potential chance to win over Stefanos Tsitsipas. Looking back the past macth records, Daniil won all four matches in the Hard,which can be reflected that Daniil has advanced tennis skilss in the Hard court. In terms of the estimated players' ability to play, Dominic Thiem	is the highest in the Clay court. Although the head-to-head effect between Dominic and David Goffin is the highest in overall where Dominic would at a disadvantage, Dominic still won 2 matches in the Clay court. Nadal is in the third place in the Clay court and it is not even unexpected at all. One of example can be explained for that is Nadal-Federer rivalry which has been discussed above. For the grass court, the estimated ability for Marin Cilic is the highest. In fact, the grass court favours a serve and volley style of play and Marin is exactly this type of player who serving moves quickly towards the net after hitting a serve or produce an effective returning volley in quick movement. 
+From the table \@ref(fig:ability-atp-surface),it shows the most highest estimated ability of different players in the particular surface. It is not surprising to see that the estimated ability for Daniil Medvedev is the highest in the Hard court. As the matchup effect table has been shown before, Daniil Medvedev is in the fourth spot who has more potential chance to win over Stefanos Tsitsipas. Looking back the past macth records, Daniil won all four matches in the Hard,which can be reflected that Daniil has advanced tennis skilss in the Hard court. In terms of the estimated players' ability to play, Dominic Thiem	is the highest in the Clay court. Although the head-to-head effect between Dominic and David Goffin is the highest in overall where Dominic would at a disadvantage, Dominic still won 2 matches in the Clay court. Nadal is in the third place in the Clay court and it is not even unexpected at all. One of example can be explained for that is Nadal-Federer rivalry which has been discussed above. In fact, a lot of people have thought Federer has a bad record against Nadal because he has a single-handed backhand and Nadal is a lefty with a lot of spin, but they don't adjust for the fact of Nadal's extreme ability on clay which could be seen in the table \@ref(fig:ability-atp-surface),and this also suggests that their matchup is overblown. For the grass court, the estimated ability for Marin Cilic is the highest. In fact, the grass court favours a serve and volley style of play and Marin is exactly this type of player who serving moves quickly towards the net after hitting a serve or produce an effective returning volley in quick movement. 
 
 
 
