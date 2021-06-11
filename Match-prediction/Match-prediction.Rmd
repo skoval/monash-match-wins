@@ -1,10 +1,11 @@
 ---
 title: "WHO WILL WIN?: Predicting match results in professional tennis"
+subtitle: Supervised by Stephanie Kovalchik from Zelus Analytics
 author: XITONG HE 
 organization: ETC5543 Internship Project
 bibliography: references.bib
 biblio-style: authoryear-comp
-linestretch: 1.5
+linestretch: 2
 output:
     bookdown::html_document2:
       toc: yes
@@ -34,6 +35,7 @@ library(rstan)
 library(bayesplot)
 library(ggpubr)
 library(DT)
+library(plotly)
 ```
 
 
@@ -55,7 +57,7 @@ wta_results%>%
 
 # Introduction
 
-In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis as one of the appealing sports,is well-suited for forecasting research because historical match results are publicly available for most pro matches so it is chosen in this project. The purpose of this project is  to develop a method for predicting match outcomes and accounting for player-to-player matchup effects in men's and women's professional tennis matches. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels such as ATP or WTA matches. These models do not only focus on the prediction results in the tennis matched, but also consider the effect of player head-to-heads. In addition, the effects of surface type about the variation of players' ability would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players.  
+In recent years, in order to meet the needs of sport coaches or media industry, the application of statistical analysis in the field of sports has developed rapidly. The ability to accurately predict the outcome of sporting matches is gaining popularity. For example, sport matches forecasting could allow media channels to provide more in-depth coverage of sporting events or allow tournament organizers to better match players' skills to provide closer, more exciting matches. Tennis as one of the appealing sports,is well-suited for forecasting research because historical match results are publicly available for most pro matches so it is chosen in this project. The purpose of this project is  to develop a method for predicting match outcomes and accounting for player-to-player matchup effects on men's and women's professional tennis matches. This project examines several probabilistic models for forecasting the outcomes of professional tennis levels, such as ATP or WTA matches. These models do not only focus on the prediction results in the tennis matched, but also consider the effect of player head-to-heads. In addition, the effects of surface type about the variation of players' ability would be addressed in the models as one of the exploratory variables and random effect variables. The models are trained and evaluated on the two historical tennis matches results of approximately 4000 tennis matches between 2010 and 2020 after filtering top 100 players.  
 
 
 # The motivation of this project
@@ -68,9 +70,9 @@ The main objective of the project is to develop and evaluate different approache
 
 There are two data sets `atp_results` and `wta_results`used on this analysis report, and the two data sets consist of approximately 36,000 matches information from 2011-01-01 to 2020-01-23 in ATP tour and WTA tour. Both of them are obtained from [GitHub skoval](https://github.com/skoval/monash-match-wins), which have similar data structures. 
 
-The table \@ref(tab:data-structure) summarizes the key information which is contained about each match in the data. The data sets also contain further information such as player id, date of tennis tournaments, Name of the match, the around in a tennis match and ect. The full list is omitted as the prediction model is more concerned about the forecasting result of tennis matches and none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project.
+The table \@ref(tab:data-structure) summarizes the key information which is contained about each match in the data. The data set also contain further information such as player id, date of tennis tournaments, Name of the match, the around in a tennis match and ect. The full list is omitted as the prediction model is more concerned about the forecasting result of tennis matches and none of this additional information is used by the models in this project. So, the only four key variable were mainly used for this project.
 
-Theoretically, the full data sets should be used for data modeling, but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem. Also, one of the reason for the top 100 player sample is to develop a general framework more quickly by focusing on a relevant but smaller-scale problem. 
+Theoretically, the full data sets should be used for data modeling, but the ranking data about top 100 players in ATP or WTA will be introduced in the following section and combined them with the full data to construct the new model data which is used for the data modeling in this project report due to the system operation problem. Also, one of the reasons for these top 100 player sample is to develop a general framework more quickly by focusing on a relevant but smaller-scale problem. 
 
 
 ```{r data-structure, warning=FALSE, message=FALSE}
@@ -183,7 +185,7 @@ Additionally, tennis sports is like a pyramid, with the size of the competitive 
 
 Therefore, from the figure \@ref(fig:atp-tier-plot),it displays the number of matched with different times of meeting in each tier in the ATP data. Clearly, having played more than 3 matches against an opponent is an unusual long history compared to the normal matches. In the ATP data, there are four tier groups and ATP WorldTour 250 has most of matches records which is the lowest tier of annual men's tennis tournaments on the main ATP Tour. In the ATP Matser1000,there are 753 matches among the players who have met more than three time each other, and only 615 matches have taken place in the ATP WorlTour250. It is obviously that the number of matches against the same opponent will be less and less in each tier especially in ATP WorldTour 500. 
 
-A similar situation occurs in WTA data. Based on the plot \@ref(fig:wta-tier-plot) shows that less than chance of playing more than 2 or 3 games against the same opponent happened in all tiers. It is worth noting that WTA Tour will rename its tournaments in 2021 which will simplify the understanding of the structure of the tour. Therefore, the premier category become WTA 1000s and 500s and international category become WTA 250s, much like the ATP tour tournaments. In addition, 125K serier is like the challenger level in ATP which is the entry-level for tour tournaments. But from the table data, the number of matches occurred in the 125K Series is the lowest, suggesting that players at the 125K Series will not often build up substantial head-to-heads against other players on the tour. According to the data from these two tables, it indicates that head-to-head matches are infrequent and that the number of matches in each tier that involve player-opponent matchup effects in the long history is very small.
+A similar situation occurs in WTA data. Based on the plot \@ref(fig:wta-tier-plot) shows that less than chance of playing more than 2 or 3 matches against the same opponent happened in all tiers. It is worth noting that WTA Tour will rename its tournaments in 2021 which will simplify the understanding of the structure of the tour. Therefore, the premier category becomes WTA 1000s and 500s and international category become WTA 250s, much like the ATP tour tournaments. In addition, 125K serier is like the challenger level in ATP, which is the entry-level for tour tournaments. But from the table data, the number of matches occurred in the 125K Series is the lowest, suggesting that players at the 125K Series will not often build up substantial head-to-heads against other players on the tour. According to the data from these two tables, it indicates that head-to-head matches are infrequent and that the number of matches in each tier that involve player-opponent matchup effects in the long history is very small.
 
 
 ```{r atp-tier-plot,fig.cap="The number of matches for players met in different number of times in ATP"}
@@ -236,7 +238,7 @@ wta_tier%>%
 
 ## Evaluating the H2H effect in each surface
 
-Similarly, the figure \@ref(fig:atp-surface) and \@ref(fig:wta-surface) represent the number of tennis matches occurred in different surface type in the last decay. Obviously, the majority of matches, and even matchups more than three times, take place on hard courts, where movement tends to be medium to fast because the court absorbs little energy and players are able to use a variety of spins during the match. In addition, Clay court is the second highest frequency playing surface and it examines the return ability of players as the balls bounce relatively high and lose a lot of initial velocity on contact with the water. Moreover, the number of matches for more than three times with same opponent are small in these two table, suggesting that the number of matches in head to head effect is relatively small even in ten years record.
+Similarly, the figure \@ref(fig:atp-surface) and \@ref(fig:wta-surface) represent the number of tennis matches occurred in the different surface type in the last decay. Obviously, the majority of matches, and even matchups more than three times, take place on hard courts, where movement tends to be medium to fast because the court absorbs little energy and players are able to use a variety of spins during the match. In addition, Clay court is the second highest frequency playing surface and it examines the return ability of players as the balls bounce relatively high and lose a lot of initial velocity on contact with the water. Moreover, the number of matches for players has met more than three times are small in these two tables, suggesting that the number of matches in head to head effect is relatively small even in ten year record.
 
 
 
@@ -321,13 +323,13 @@ The inclusion of the prediction error $U_i$ allows for variability between playe
 
 ## Bayesian Paired Comparison models in Stan
 
-**1. Simple Bradley Terry model: **
+**1. The Bayesian method applied in Bradley-Terry model: **
 
 Bayesian inferences are based on a posterior probability density distribution (further referred to as the posterior) regarding the parameters, given the data collected. This allows for a more intuitive interpretation of parameters uncertainty. Basically, the Bayesian model can be broken down as consisting of:
 
 * Observed variables: The tennis matches outcomes are given. A single outcome will be given the notation $r$ and a set of outcomes $D$.
 
-* Unobserved variables. These are the parameters of the model itself which are chosen as part of the model design. These will be represented generally by the notation $w$.
+* Unobserved variables: The parameters are chosen as part of model design,representing generally by the notation $w$.
 
 * prior probability: $P(w)$. A standard normal prior is used in this project.
 
@@ -347,7 +349,8 @@ where$r_{ij}=1$ indicates a win for player i against player j,$\lambda_{i}$ and 
 For the some of data consisting of a set of match outcomes $D={r^1,r^2...r^n}$ for a set of players $M ={1,2,...,m}$ with ability $\lambda={\lambda_{1},\lambda_{2},...,\lambda_{m}}$,the likelihood of the model given the data can be expressed as:
 $$P(D|\lambda)=\prod_{i = 1}^{N} \sigma(\lambda_{a}^i-\lambda_{b}^i)$$ 
 
-In this project, the $\lambda$ will be estimated as the prior probability with standard normal distribution ($\lambda_{std} \sim N(0,1)$;$\lambda \sim N(0,\lambda_{std}^2)$ and then added the observed match outcomes constantly to evaluate if the model strengthens or weakens the prior probability, so that the estimated posterior probability which will bet closer to actual value. After revising the posterior probabilities, the next match predictive outcome $P(r^{n+1}_{ij}=1|\lambda)$ will be inferred as: $\sigma(\lambda_{i}-\lambda_{j})$ through posterior predictive distribution with Maximum a posteriori estimation(MAP) where the expectation of $P(\lambda|D)$ is the $\lambda$ if given the previous matches data $r^n_{ij}$
+In this project, the $\lambda$ will be estimated as the prior probability with standard normal distribution ($\lambda_{std} \sim N(0,1)$;$\lambda \sim N(0,\lambda_{std}^2)$ and then added the observed match outcomes constantly to evaluate if the model strengthens or weakens the prior probability, so that the estimated posterior probability which will be closer to the actual value. 
+
 
 **2. Mixed effect model in Stan (Surface random effect ): **
 
@@ -367,7 +370,7 @@ In this report, $s$ represents different types of surface so $U_{std}$ represent
 
 This section discusses the implementation of three different prediction models and is structured as follows:
 
-- Data re-preparation: briefly discusses the new model data about ranking data with top 100 players.
+- Data re-preparation: briefly discusses the new model data about ranking data with the top 100 players.
 
 - Model process: mainly introduces the process of modeling in each prediction model. 
 
@@ -375,7 +378,7 @@ This section discusses the implementation of three different prediction models a
 
 ## Data re-preparation
 
-For avoiding the technical issue such as the system crush, overload and time consumption, a subset data with selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full dataset with ATP and WTA matches record. One of the reason for choosing the top 100 players is to develop a general framework more quickly by focusing on a relevant but smaller-scale problem. 
+For avoiding the technical issue such as the system crash, overload and time consuming, a subset data by selecting top 100 players for ATP and WTA to build up the model efficiently instead of using the full data set with ATP and WTA matches the record.
 
 Therefore, `atp_ranking` and `wta_ranking` were collected from the official websites, atpworldtour.com and wtatennis.com respectively, with the rankings of the top 100 women and 100 men and they joined with the full dataset so the players were limited in the ranking of top 100 in both male and female for the final model data and it will be used for whole modeling parts.
 
@@ -462,11 +465,11 @@ wta_bt<-BTm(cbind(p0_count,p1_count),Player0,Player1,~Player,id="Player",data=wt
 
 **Modeling process:**
 
-The simple Bradley Terry Model is implemented by the `BradleyTerry2` package. There are two main functions used in this project:
+The simple Bradley-Terry Model is implemented by the `BradleyTerry2` package. There are two main functions used in this project:
 
-- `BTm` function: constructs the Bradley Terry model with the matrix of p0_count and p1_count from the top 100 players data
+- `BTm` function: constructs the Bradley-Terry model with the matrix of p0_count and p1_count from the top 100 players data
 
-- `BTabilities` function:  computes the ability of each player from the model objects against with the baseline player.
+- `BTabilities` function: computes the ability of each player from the model objects against the baseline player.
 
 **Model output analysis:**
 
@@ -516,17 +519,17 @@ wta_abilities%>%
   # ))
 ```
 
-From the table \@ref(fig:ATP-ability) and \@ref(fig:WTA-ability), Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players in the ATP and WTA data as their ability are 0. In the ATP data,Novak Djokovic,Rafael Nadal and Roger Federer have the highest estimated ability compared with the Adrian Mannarino. All three of them have played and won most of matches and their ranking almost maintain in the top 10 of the world on average, indicating that their tennis level are higher than other players. On the contrary, Lorenzo Musetti and Sebastian Korda have the lowest estimated ability and one of reason for that they have only played one game and even lost in that match,so their ability are estimated quite lower. 
+From the table \@ref(fig:ATP-ability) and \@ref(fig:WTA-ability), Adrian Mannarino and Ajla Tomljanovic became the baseline against with other players on the ATP and WTA data as their ability are 0. In the ATP data, Novak Djokovic, Rafael Nadal and Roger Federer have the highest estimated ability compared with the Adrian Mannarino. All three of them have played and won most of matches and their ranking almost maintain at the top 10 of the world on average, indicating that their tennis level are higher than other players. On the contrary, Lorenzo Musetti and Sebastian Korda have the lowest estimated ability and one  the reason for that they have only played one game and even lost in that match, so their ability is estimated quite lower. 
 
-Similarly, in the WTA model,Serena Williams have the highest estimated tennis skill whereas Clara Tauson have the lowest estimated tennis ability compared with Ajla. That could be caused by the fact that Serena won the most of matches like more than 50 matches based on the data and Clara only had played two matches but she lost both of them. 
+Similarly, in the WTA model, Serena Williams have the highest estimated tennis skill, whereas Clara Tauson have the lowest estimated tennis ability compared with Ajla. That could be caused by the fact that Serena won the most of matches like more than 50 matches based on the data and Clara only had played two matches but she lost both of them. 
 
 ### Bayesian Paired Comparison models in Stan
 
-#### Bradley Terry model with head-to-head effect
+#### Bradley-Terry model with head-to-head effect
 
 **Modeling process:**
 
-- `model_stan_data`:construct the stan model data with the total number of matches and the number of matches of player0 winning in each pair of players
+- `model_stan_data`:construct the Stan model data with the total number of matches and the number of matches of player0 winning in each pair of players
 
 - `bpc_h2h_pred.stan`: is the model script file. Instead of only using simple Bradley Terry model with bernoulli distribution in a single match,the Stan model data collapse the matches between every pair of players so it had been became the binomial distribution, which is structured as: $y \sim binomial(n,p)$. The main parameters are used in the Stan model:
 
@@ -539,15 +542,15 @@ Similarly, in the WTA model,Serena Williams have the highest estimated tennis sk
   
   * **$h2hz_{player_i,player_j}$**: is a matrix which assigns the upper triangular values following standard normal distribution and lower triangular values following normal distribution but it has to be closer to zero which is the effective zero assignment.
   
-  * **$h2h_{player_i,player_j}$**: is a matrix which assigns the upper triangular values using draws around a shared normal distribution. The lower triangular are the same effects of opposite sign. So basically there is a shared effect for player i, j but it adds or subtracts depending on the order of player and which player we are predicting the chance of a win for. 
+  * **$h2h_{player_i,player_j}$**: is a matrix which assigns the upper triangular values using draws around a shared normal distribution. The lower triangle is the same effects of opposite sign. So basically there is a shared effect for player i, j but it adds or subtracts depending on the order of player and which player is predicted the chance of a win for.
   
-  * *p1_win*: is the probability of player1 win with considering the head-to-head effects between each pair of player. In addition, based on the Bradley Terry Model, it has been used logistics function to evaluate the probability of player1 win on the logit scale which is mapped $(0,1) \to R$, so the inverse logistics function should be used to transform the log-odds value to real probability of player1 win which is mapp $R \to (0,1)$ and the final structure for `p1_win` is shown as below:
+  * *p1_win*: is the probability of player1 win with considering the head-to-head effects between each pair of player. In addition, based on the Bradley-Terry Model, it has been used logistics function to evaluate the probability of player1 win on the logit scale which is mapped $(0,1) \to R$, so the inverse logistics function should be used to transform the log-odds value to real probability of player1 win which is mapped $R \to (0,1)$ and the final structure for `p1_win` is shown as below:
 
 $$Pr(win_1)=\frac{e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}{1+e^{(\lambda_{player1}-\lambda_{player0}+h2h_{player1,player0})}}$$
   
   * `generated quantities`: created a new vector for predictive value via binomial distribution
   
-- `vb` function: is used variational inference for finding optimal posterior distribution. In this case,using VB testing to examine the result whether the model construction and diagnostics is reasonable approximation or not. It can also minimize the difference between actual distribution and approximation distribution and reduce the time consumption, which is a more effective and less uncertain method for checking the Stan model correctly.
+- `vb` function: is used variational inference for finding optimal posterior distribution. In this case, using VB testing to examine the result, whether the model construction and diagnostics are reasonable approximation or not. It can also minimize the difference between actual distribution and approximation distribution and reduce the time consuming, which is a more effective and less uncertain method for checking the Stan model correctly.
 
 - `sampling` function: computes posterior samples via MCMC(Markov Chain Monte Carlo) method given a model previously compiled from `stan_model` (bpc_h2h_pred.stan). In this case, it is a more reliable way to find the posterior probability by final inferences.
 
@@ -627,7 +630,7 @@ wta_fit_summary <- summary(wta_stan)$summary %>%
 
 **1. MCMC Parameter diagnostics:**
 
-By default the sampling method runs 4 Markov chains of Hamiltonian Monte Carlo in parallel, each of those chains proceeds with 1000 warmup iterations and 1000 sampling iterations, totaling 4000 sampling iterations available for diagnostics and analysis.
+By default the sampling method to run 4 Markov chains of Hamiltonian Monte Carlo in parallel, each of those chains proceeds with 1000 warmup iterations and 1000 sampling iterations, totaling 4000 sampling iterations available for diagnostics and analysis.
 
 To examine the model fitting, the MCMC parameter diagnostics should be built up after extracting summary statistics on each model parameter.
 
@@ -745,15 +748,15 @@ atp_h2h%>%
 
 ```
 
-By filtering the negative mean value of h2h effects which is corresponded to a player(player1) who is disadvantaged or has lower win chance against with their opponent(player0), the table \@ref(fig:h2h-atp) shows the head-to-head effects in different pair and ranked players. The largest h2h effect is 0.26 between Dominic Thiem and David Goffin, where Dominic has lower win chance in their matches. In fact, These two have faced each other 9 times in their career with David leading 7 to 2 based on the historical data. However, Dominic is ranked higher than David and Elo rating shows that the point difference between these two players was over 100 with Dominic ahead which means implies that the favorite has a 64% chance of winning[@vaughan2021well]. It is surprisingly observed the result that David's advantage over Dominic is lopsided even though considering the player's ranking and Elo rating board. 
+By filtering the negative mean value of h2h effects which corresponds to a player (player1) who is disadvantaged or has lower win chance against with their opponent (player0), the table \@ref(fig:h2h-atp) shows the head-to-head effects in different pairs and ranked players. The largest h2h effect is 0.26 between Dominic Thiem and David Goffin, where Dominic has a lower win chance in their matches. In fact, These two have faced each other 9 times in their career with David leading 7 to 2 based on the historical data. However, Dominic is ranked higher than David and Elo rating shows that the point difference between these two players was over 100 with Dominic ahead, which means implies that the favorite has a 64% chance of winning[@vaughan2021well]. It is surprisingly observed the result that David's advantage over Dominic is lopsided even though considering the player's ranking and Elo rating board. 
 
-The another similar situation happened between Stan Wawrinka and Marin Cilic, who exist the second largest matchup effects. In the last ten years, Wawrinka has won all the matches when they have faced each other 7 times overall. It is worth noting that Wawrinka's ranking is higher than Cilic now but Cilic was surpassed Warinka in the ATP tour ranking in 2016,2017 and the difference was significant especially in 2018.
+The another similar situation happened between Stan Wawrinka and Marin Cilic, who exist the second largest matchup effects. In the last ten years, Wawrinka has won all the matches when they have faced each other 7 times overall. It is worth noting that Wawrinka's ranking is higher than Cilic now, but Cilic was surpassed Warinka in the ATP tour ranking in 2016,2017 and the difference was significant especially in 2018.
 
 Generally speaking, the higher ranked players trend to have better level of tennis skills or more talented whereas they are also likely to suffer failure when facing specific opponents,like Gilles Simon against Gael Monfils, who are more than 50 places apart in the rankings and the h2h effect with 0.25 shows Gilles has got a 25% boost on his odds when facing Monfils. So it is not surprising that Gilles won 6 out of 8 matches with Monfils. 
 
-On the other hand, there are also some interesting facts, for example Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille whose ranking is No.56 and No.85. Also,in the 100 biggest head-to-head effects,Lucas Pouille as the most frequently occurring in the beneficiary side of the player,having the benefit of the matchup class for 6 times, with the biggest edge being over Richard Gasquet. And Roberto Bautista Agut features 8 times in the top 100 overall, three of which were in the 10 biggest matchup effects. Roberto has disadvantaged with Fabio Fognini and Milos Raonic but had a better chance of winning when facing with Benoit Paire.
+On the other hand, there are also some interesting facts, for example, Novak Djokovic and Daniil Medvedev are the world's No. 1 and No. 2 tennis players, but they have a greater chance to lose the match in the face of Nick Kyrgios and Lucas Pouille whose ranking is No.56 and No.85. Also, in the 100 biggest head-to-head effects, Lucas Pouille as the most frequently occurring in the beneficiary side of the player,having the benefit of the matchup class for 6 times, with the biggest edge being over Richard Gasquet. And Roberto Bautista Agut features 8 times in the top 100 overall, three of which were in the 10 biggest matchup effects. Roberto has disadvantaged with Fabio Fognini and Milos Raonic but had a better chance of winning when facing with Benoit Paire.
 
-Federer and Rafael Nadal are widely regarded as the two greatest tennis players of all the time and the rivalry between them is considered as a modern-day tennis rivalry,also known as the famous Federer–Nadal rivalry [@bodo2010clay]. Even though the head-to-head effect between them gives 2% boost to Nadal which is not significant, it still can explain the some facts that Nadal won 9 of 16 matches over Federer and he had won 4 times over Federer in Clay in the 4 matches as well. Moreover, the Clay Elo rating of Nadal was higher than Federer in the last decay,implying that Nadal is more capable than Federer especially when the match takes place in Clay, which may explain the matchup effects. Moreover, Nadal have occurred 5 times as the disadvantaged players in the 100 biggest head-to-head effects,which is the most.  
+Federer and Rafael Nadal are widely regarded as the two greatest tennis players of all the time and the rivalry between them is considered as a modern-day tennis rivalry, also known as the famous Federer–Nadal rivalry [@bodo2010clay]. Even though the head-to-head effect between them gives 2% boost to Nadal which is not significant, it still can explain the some facts that Nadal won 9 of 16 matches over Federer and he had won 4 times over Federer in Clay in the 4 matches as well. Moreover, the Clay Elo rating of Nadal was higher than Federer in the last decay, implying that Nadal is more capable than Federer, especially when the match takes place in Clay, which may explain the matchup effects. Moreover, Nadal have occurred 5 times as the disadvantaged players in the 100 biggest head-to-head effects, which is the most.  
 
 
 - H2H effect in WTA data:
@@ -797,13 +800,13 @@ wta_h2h%>%
 ```
 
 
-Table \@ref(fig:h2h-wta) represents the head-to-head effects between each pair of player from WTA model and the bigger the number, the more favorable for player0, that is, the greater the chance of winning the game. The biggest one is the match between Kirsten Flipkens	and Donna Vekic. They met five times between 2010 and 2020, and Flipkens won the match every time. Donna is higher than Flipkens in the player ranking and Elo rating system, while Flipkens is more favorable when matching with Donna, with 10% improvement on her win odds.
+Table \@ref(fig:h2h-wta) represents the head-to-head effects between each pair of player from WTA model and the bigger the number, the more favorable for player0, that is, the greater the chance of winning the game. The biggest one is the match between Kirsten Flipkens	and Donna Vekic. They met five times between 2010 and 2020, and Flipkens won the match every time. Donna is higher than Flipkens in the player ranking and the Elo rating system, while Flipkens is more favorable when matching with Donna, with 10% improvement in her win odds.
 
-It is interesting to see several players occur multiple times in the top 10 matchup effects. Sloane Stephens,Heather Watson and Caroline Garcia all appear twice among the top 10 biggest head-to-head effects but only Caroline is favor in both sides. Moreover, Heather has the biggest advantage when facing with Stephens which won 4 time in the 6 matches and Misaki Doi is the next one who lost the matches all the time over Heather. Except for Heather, Stephens also has lower chance to win the matches over Johanna Konta. Based on the historical match records, Konta had won all four of their previous matches, all played in the last years. Only once did Stephens win the first games, in the Wimbledon in 2019, tooking the attack with slapping forehand winners cross-court,but Konta still won the match. 
+It is interesting to see several players occur multiple times in the top 10 matchup effects. Sloane Stephens,Heather Watson and Caroline Garcia all appear twice among the top 10 biggest head-to-head effects, but only Caroline is favored in both sides. Moreover, Heather has the biggest advantage when facing with Stephens which won 4 times in the 6 matches and Misaki Doi is the next one who lost the matches all the time over Heather. Except for Heather, Stephens also has a lower chance to win the matches over Johanna Konta. Based on the historical match records, Konta had won all four of their previous matches, all played in the last years. Only once did Stephens win the first games, in the Wimbledon in 2019, taking the attack with slapping forehand winners cross-court, but Konta still won the match. 
 
-Looking across all of the top 100 head-to-head effect, there are several players who seem to be candidates for clashes of game style with their competitors. Caroline has more potential opportunity to win over Victoria Azarenka and so it is the fact that Caroline always find the way to win the matches when meeting with Azarenke. However, the situation is completely different if Caroline faced with Barbora Strycova. In the last decay, Barbora and Caroline fought each other five times, but Caroline lost all the time. Their ranking look similar and one of reason is to explain that the clashes of games styles between them. Caroline is an offensive baseliner like Azarenka, with consistent and powerful ground strokes, whereas Barobora is an serve-and-volley player, with hitting the first and finishing volley to end the point. The point construction is serve, and it is difficult to return from which to hit a first volley so it may can explain why Caroline would have disadvantage over Barbora.
+Looking across all of the top 100 head-to-head effect, there are several players who seem to be candidates for clashes of game style with their competitors. Caroline has a more potential opportunity to win over Victoria Azarenka and so it is the fact that Caroline always finds the way to win the matches when meeting with Azarenke. However, the situation is completely different if Caroline faced with Barbora Strycova. In the last decay, Barbora and Caroline fought each other five times, but Caroline lost all the time. Their ranking look similar and one of the reasons is to explain that the clashes of playing styles between them. Caroline is an offensive baseliner like Azarenka, with consistent and powerful ground strokes, whereas Barobora is a serve-and-volley player, with hitting the first and finishing volleys to end the point. The point construction is served, and it is difficult to return from which to hit a first volley so it may can explain why Caroline would have a disadvantage over Barbora.
 
-Another pair of player came out in the 10 biggest matchup effect is probably surprising even eager tennis fans. This head-to-head effect about Elina Svitolina	and Ashleigh Barty,where Elina has more advantageous. Barty is the most popular player in the world and her ranking is the first one now as well. But they met four times before 2020 and Barty lost all the matches. On the other hand, it was memorable that Naomi beats Serena in the chaotic 2018 US Open final and reached her fourth major title match. It is obviously that Naomi has the benefit of matchup effect over Serena from the table data, with 5% on her odds. Although the figure like the 5% improvement on odds is not significant, it can be explained to a certain extent that Naomi has the benefit of matchup effect with Serena.
+Another pair of player came out in the 10 biggest matchup effect is probably surprising even eager tennis fans. This head-to-head effect about Elina Svitolina and Ashleigh Barty, where Elina has more advantages. Barty is the most popular player in the world and her ranking is the first one now as well. But they met four times before 2020 and Barty lost all the matches. On the other hand, it was memorable that Naomi beat Serena in the chaotic 2018 US Open final and reached her fourth major title match. Although the figure like the 5% improvement on odds is not significant from the table \@ref(fig:h2h-wta), it can be explained to a certain extent that Naomi has the benefit of the matchup effect with Serena.
 
 
 #### Random effects in Bradley Terry model 
@@ -968,7 +971,7 @@ DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',class 
   formatRound(columns=c('Mean'), digits=4)
 ```
 
-From the table \@ref(fig:ability-atp-surface),it shows the most highest estimated ability of different players in the particular surface. It is not surprising to see that the estimated ability for Daniil Medvedev is the highest in the Hard court. As the matchup effect table has been shown before, Daniil Medvedev is in the fourth spot who has more potential chance to win over Stefanos Tsitsipas. Looking back the past macth records, Daniil won all four matches in the Hard,which can be reflected that Daniil has advanced tennis skilss in the Hard court. In terms of the estimated players' ability to play, Dominic Thiem	is the highest in the Clay court. Although the head-to-head effect between Dominic and David Goffin is the highest in overall where Dominic would at a disadvantage, Dominic still won 2 matches in the Clay court. Nadal is in the third place in the Clay court and it is not even unexpected at all. One of example can be explained for that is Nadal-Federer rivalry which has been discussed above. In fact, a lot of people have thought Federer has a bad record against Nadal because he has a single-handed backhand and Nadal is a lefty with a lot of spin, but they don't adjust for the fact of Nadal's extreme ability on clay which could be seen in the table \@ref(fig:ability-atp-surface),and this also suggests that their matchup is overblown. For the grass court, the estimated ability for Marin Cilic is the highest. In fact, the grass court favours a serve and volley style of play and Marin is exactly this type of player who serving moves quickly towards the net after hitting a serve or produce an effective returning volley in quick movement. 
+From the table \@ref(fig:ability-atp-surface),it shows the most highest estimated ability of different players in the particular surface. It is not surprising to see that the estimated ability for Daniil Medvedev is the highest in the Hard court. As the matchup effect table has been shown before, Daniil Medvedev is in the fourth spot who has more potential chance to win over Stefanos Tsitsipas. Looking back the historical match records, Daniil won all four matches in the Hard, which can be reflected that Daniil has advanced tennis skills in the Hard court. In terms of the estimated players' ability to play, Dominic Thiem	is the highest in the Clay court. Although the head-to-head effect between Dominic and David Goffin is the highest in overall where Dominic would at a disadvantage, Dominic still won 2 matches in the Clay court. Nadal is in the third place in the Clay court and it is not even unexpected at all. One of the examples can be explained in that is Nadal-Federer rivalry which has been discussed above. In fact, a lot of people have thought Federer has a bad record against Nadal because he has a single-handed backhand and Nadal is a lefty with a lot of spin, but they don't adjust for the fact of Nadal's extreme ability on clay which could be seen in the table \@ref(fig:ability-atp-surface),and this also suggests that their matchup is overblown. For the grass court, the estimated ability for Marin Cilic is the highest. In fact, the grass court favors a serve and volley style of play and Marin is exactly this type of player who serving moves quickly towards the net after hitting a serve or produce an effective returning volley in quick movement.  
 
 
 
@@ -986,28 +989,28 @@ DT::datatable(options =list(pageLength=10,autoWidth=FALSE),filter = 'top',class 
 
 
 
-Anastasia has the most advanced tennis ability in the hard court based on the table \@ref(fig:ability-wta-surface). Since Anastasia has played 125 games, almost the most on hard court, and won more than half, Anastasia's ability should be higher. It is worth noting that Naomi and Sabalenka are in the fifth and eighth spot as well,both of them are the top 10 players in the world. In terms of the estimated players' ability to play, Tamara Zidansek is the highest in the clay court. Although Tamara claimed the first title on the pro-level in 2014, she did not have many match records in the model data but it is not hard to evaluate for that Tamara met with other 14 players in the 19 matches and won 15 times among them,indicating that Tamara has advantage in the clay court. Similarly, Kristina Mladenovic	is in the second spot of the top 10 players who has the most advanced skills in the clay court. Kristina won 25 out of 32 matches base on the past records, showing her better performance when playing in the clay court. It is interesting to see the estimated ability in the grass court for Alison Riske is greater than 1, and is also the highest among all players. In fact, Alison played 30 matched in total and won 22 times,so the probability of Alinson win is around 73%,the highest of all players. Barbora Strycova is in the second place in the list, winning 17 of 27 matches with a 63% chance. Furthermore,although only a few matches occurred in the carpet court, Martincova has the highest expected ability, won all the matches over other players.
+Anastasia has the most advanced tennis ability on the hard court based on the table \@ref(fig:ability-wta-surface). Since Anastasia has played 125 matches, almost the most on hard court, and won more than half, Anastasia's ability should be higher. It is worth noting that Naomi and Sabalenka are in the fifth and eighth spot as well, both of them are the top 10 players in the world. In terms of the estimated players' ability to play, Tamara Zidansek is the highest in the clay court. Although Tamara claimed the first title on the pro-level in 2014, she did not have many match records in the model data, but it is not hard to evaluate for that Tamara met with other 14 players in the 19 matches and won 15 times between them, indicating that Tamara has an advantage in the clay court. Similarly, Kristina Mladenovic	is in the second spot of the top 10 players who has the most advanced skills in the clay court. Kristina won 25 out of 32 matches base on the past records, showing her better performance when playing on the clay court. It is interesting to see the estimated ability on the grass court for Alison Riske is greater than 1, and is also the highest among all players. In fact, Alison played 30 matched in total and won 22 times, so the probability of Alinson win is around 73%, the highest of all players. Barbora Strycova is in the second place in the list, winning 17 of 27 matches with a 63% chance. Furthermore, although only a few matches occurred in the carpet court, Martincova has the highest expected ability, won all the matches over other players.
 
 
 
 # Model Evaluation
 
-After modeling the data, the predicted probability with each match will generate from different models. In addition,this project focuses on making probabilistic predictions on the overall outcome of each match. The predictions therefore take the form of a single value $P_{w}$, which is the probability assigned by a given model to the winning player. Since there are no draws and the probability of the losing player can be inferred as $P_{l}=1-P_{w}$, then a single value suffices for all predictions. For evaluating the model performances such as the model predictions are close to actual value or not, one of key method is the calibration. 
+After modeling the data, the predicted probability with each match will generate from different models. In addition, this project focuses on making probabilistic predictions on the overall outcome of each match. The predictions therefore take the form of a single value $P_{w}$, which is the probability assigned by a given model to the winning player. Since there are no draws and the probability of the losing player can be inferred as $P_{l}=1-P_{w}$, then a single value suffices for all predictions. For evaluating the model performances such as the model predictions are close to the actual value or not, one of key method is the calibration. 
 
-Calibration is a measure of the model performance which can be defined as how well the forecasted probabilities correspond to the actual outcomes and can be useful in order to better understand the behaviour and biases of different models[@kovalchik2016searching]. Basically, the probabilistic prediction can be well calibrated if the observed winning probability is close to $\alpha$ when considering all matches with predicted probabilities $\alpha$. In order to identify if this condition is satisfied, the calibration curve is established. Firstly,data will be grouped into 10 bins ordered by their predicted probability, 0-10%, 10-20%, etc and the mean of predicted probability will be calculated in each bin. And then the mean of predicted probability will be compared with the mean of actual probability in each bin which is sum of the matches of players win divided by the sum of the number of matches between each pair players played.
+Calibration is a measure of the model performance, which can be defined as how well the forecasted probabilities correspond to the actual outcomes and can be useful in order to better understand the behavior and biases of different models [@kovalchik2016searching]. Basically, the probabilistic prediction can be well calibrated if the observed winning probability is close to $\alpha$ when considering all matches with predicted probabilities $\alpha$. In order to identify if this condition is satisfied, the calibration curve is established. Firstly, data will be grouped into 10 bins ordered by their predicted probability, 0-10%, 10-20%, etc. and the mean predicted probability will be calculated in each bin. And then the mean  predicted probability will be compared with the mean  the actual probability in each bin which is the sum of the matches of players win divided by the sum of the number of matches between each pair players played.
 
-When a model is well-calibrated, the mean of actual probability against with mean of predicted probability will close with each other. If the mean of actual probability is greater than the mean of predicted probability, the models trend to be underestimate the wins of players, the reverse is overestimate.
+When a model is well-calibrated, the mean actual probability against with a mean predicted probability will close with each other. If the mean  actual probability is greater than the mean  predicted probability, the models trend to be underestimating the wins of players, the reverse is an overestimate.
 
 
 ## Standard Bradley-Terry Model
 
-In the Bradley Terry model, using the `predict` function to predictive winning probability of player 0 in the competition between each pair of players, and then grouping the expected probability into 10 bins to calculated the mean of expected probability in each bins. Table \@ref(tab:cali-bt-table) shows the comparison between the mean of actual probability and the mean of predictive probability in each bin in ATP and WTA. The larger the positive difference is, the greater the underestimation of the winning rate is. At the same time, the larger the negative difference is, the more overestimated the winning rate is. In order to directly visualize the difference between expected value against with actuality, the scatterplot \@ref(fig:cali-bt-plot) is constructed as the calibration curve to evaluate the model performance.
+In the Bradley-Terry model, using the `predict` function to predict the probability of player 0 win in the competition between each pair of players, and then grouping the expected probability into 10 bins to calculate the mean of expected probability in each bin. Table \@ref(tab:cali-bt-table) shows the comparison between the mean actual probability and the mean  predictive probability in each bin in the ATP and WTA. The larger the positive difference is, the greater the underestimation of the winning rate is. At the same time, the larger the negative difference is, the more overestimated the winning rate is. In order to directly visualize the difference between the expected value against with actuality, the scatter plot \@ref(fig:cali-bt-plot) is constructed as the calibration curve to evaluate the model performance.
 
-Therefore, from the figure \@ref(fig:cali-bt-plot), the estimated winning probability of player 0 is close to actual value especially in the range of 0.5 to 0.75 in ATP data. There is a little bit of volatility outside the range. Looking back in the table, it is obvious that the difference between expected value against with reality is smaller and positive except in the bins 2,3,5 and 9. The biggest differences is in the bins 2 and it can be visualized in the plot as well where has the most fluctuating in the 12%-15%.
+Therefore, from the figure \@ref(fig:cali-bt-plot), the estimated winning probability of player 0 is close to the actual value, especially in the range of 0.5 to 0.75 in ATP data. There is a little bit of volatility outside the range. Looking back at the table \@ref(tab:cali-bt-table) , it is obvious that the difference between the expected value against with reality is smaller and positive except in the bins 2,3,5 and 9. The biggest differences is in the bins 2 and it can be visualized in the plot as well where has the most fluctuating in the 12%-15%.
 
-A similar way to access the model performance in WTA data. The closest to real probability is in the fourth to ninth bins where all differences are almost after second decimal places. It is interesting to see there is a turning point after 84% which is the biggest difference as well compared with others,is 0,0786 in the tenth bin. The reason for that is the mean of actual probability is 1 which all the player 0 won all the matches in the tenth bin but expected probabilities for them are around 0.92, it may cause the winning probabilities of player 0 will be underestimated in the tenth bin. 
+A similar way to access the model performance in WTA data. The closest to real probability is in the fourth to ninth bins where all differences are almost after second decimal places. It is interesting to see there is a turning point after 84%, which is the biggest difference as well compared with others, is 0,0786 in the tenth bin. The reason for that is the mean actual probability is 1 which all the players 0 won all the matches in the tenth bin, but expected probabilities for them are around 0.92, it may cause the winning probabilities of player 0 will be underestimated in the tenth bin. 
 
-Although there are differences in each box, the difference is small and can be ignored. Moreover, most of the predicted values in the scatter plot \@ref(fig:cali-bt-plot) fit well with the actual probability. Overall, the model prediction is close to actual winning probability of player 0. 
+Although there are differences in each box, the difference is small and can be ignored. Moreover, most of the predicted values in the scatter plot \@ref(fig:cali-bt-plot) fit well with the actual probability. Overall, the model prediction is close to the actual probability of player 0 wins. 
 
 
 ```{r bins-function}
@@ -1105,16 +1108,15 @@ ggarrange(p1,p2)
 
 ### Head-to-head effect
 
-Since the Stan model used the binomial distribution as the predictive model,the predicted value from the head-to-head effect with bayesian paired comparison model is no longer be probability,but the number of matches player 1 wins. And, the predicted value should be an integer because of the definition of binomial distribution, so it is reasonable to choose the prediction with 50% as the final prediction of the match that player 1 will win.
+Since the Stan model used the binomial distribution as the predictive model, the predicted value of the head-to-head effect in the Bayesian paired comparison model is no longer be probability,but the number of matches player 1 wins. And, the predicted value should be an integer because of the definition of binomial distribution, so it is reasonable to choose the prediction with 50% as the final prediction of the match that player 1 will win.
 
-It is clear that there are two segments of the WTA data with the greatest volatility in the figure \@ref(fig:cali-stan-plot), one trends to be concave, the other one be convex. The fluctuation in ATP data seems to be lesser than WTA data and only the first and last bins deviated from 45 degree line, and the rest seemed to fit well. 
+It is clear that there are two segments of the WTA data with the greatest volatility in the figure \@ref(fig:cali-stan-plot), one trend to be concave, the other one is convex. The fluctuation in ATP data seems to be lesser than WTA data and only the first and last bins deviated from the 45 degree line, and the rest seemed to fit well.  
 
-Rather than only visualizing the relationship between expected probability and actual probability from the figure, combine with the table \@ref(tab:cali-stan-table) to analyze why such a situation appears. Based on the table \@ref(tab:cali-stan-table), the most interesting thing for WTA data is in the last two bins where the mean of actual probability is 1 in the ninth bin and the mean of predicted probability is 1 in the tenth bin,causing the convex issue. In fact, in the ninth bin, only one pair player like Victoria Azarenka with Alize Cornet appears and Azarenka won the matches all the time but the predicted matches of Azarenka win are 5, which causes the difference between mean of actual probability and expected value. However, there are several pair of players that the number predicted matches of player 1 win higher than actual matches in the tenth bins,the difference are 2 and the head-to-head effect are concentrated at 0.066,indicating that the matchup effects among them are unstable. Moreover, the ranking of all the player 1 are higher than player 0 and it implies the ability of player 1 are higher than player 0, which may cause the predicted matches of player 1 would be higher than actual. A similar situation happened in the tenth bin in ATP data, all of head-to-head effect are concentrated on 0.14 and the ranking of all player 1 are higher than player 0,suggesting that the matchup effects between them are irregular or variable.
+Rather than only visualizing the relationship between expected probability and actual probability from the figure, combine with the table \@ref(tab:cali-stan-table) to analyze why such a situation appears. Based on the table \@ref(tab:cali-stan-table), the most interesting thing for WTA data is in the last two bins where the mean actual probability is 1 in the ninth bin and the mean predicted probability is 1 in the tenth bin, causing the convex issue. In fact, the plot \@ref(fig:wta-cali-freq) which can be interactively visualized the distribution of number of matches with different times of meeting in each bin in WTA data and it is clear that in the ninth bin, only one pair player like Victoria Azarenka with Alize Cornet appears and Azarenka won all matches in 6 times but the predicted matches of Azarenka win are 5, which causes the difference between mean of actual probability and expected value. However, the frequency of most of the matches in the tenth bin is concentrated in 1 and there are only 54 matches that players have met twice, suggesting that the matchup effects among them who only have played one time are unstable. A similar situation for ATP data can be seen in the plot \@ref(fig:atp-cali-freq), there are more than 400 matches that players have played one time and only 27 matches that players have played more than three time, indicating that the size of players met one time is larger than players met more than three times so that the matchup effects between them are abnormal or variable. 
 
-Another point of concern is that the mean predicted probability are zero in both first bins. One of reason is that the number matches between each pair player are almost less than two,in other words, there are more than 100 pairs player who have only met one time with their opponent,indicating that head-to-head effects between them are less than other because of the sample size are smaller so all the predicted matches of player 1 win are zero in this case.
+Another point of concern is that the mean predicted probability are zero in both first bins. One of the reasons is that the sample size of the matchup effects is extremely small. It can be seen from the figure \@ref(fig:atp-cali-freq) and \@ref(fig:wta-cali-freq), there are more than 400 matches that players have only met one time with their opponent in the ATP and WTA, indicating that head-to-head effects between them are less than other which causes all the predicted matches of player 1 win are zero in this case.
 
-In general, the model performance with considering head-to-head effect is better in terms of ATP data rather than WTA data, but both of them can be accepted in this project even though they are not perfectly fit to the data.
-
+In general, the model performance with considering head-to-head effect is better in terms of ATP data rather than WTA data, but both of them can be accepted in this project even though they are not perfectly fitted to the data due to the extreme predicted value.
 
 ```{r cali-stan-table,fig.cap="Calibration table for evaluating head-to-head effect"}
 atp_stan_data%>%
@@ -1188,17 +1190,58 @@ p4<-ggplot(wta_stan_cali,aes(mean_act,mean_pred))+
 ggarrange(p3,p4)
 ```
 
+
+```{r atp-cali-freq,fig.cap="The distribution of the number of matches that ATP players meet in the number of times"}
+library(plotly)
+atp_freq<-atp_stan_bins%>%
+  group_by(bins,total_count)%>%
+  tally()%>%
+mutate(matches=as.character(case_when(total_count==1 ~"Met 1 time",
+                             total_count==2 ~"Met 2 times",
+                             total_count>=3~"Met more then 3 times")))%>%
+  rename(count=n)%>%
+  ggplot(aes(bins,count,fill=matches))+
+   geom_col(position = "dodge")+
+  theme_bw(base_size = 12) +
+ xlab("bins")+
+  ylab("Count")+
+  ggtitle("The distribution of the number of matches for ATP players")+
+    scale_x_continuous(breaks = seq(1, 10,1))
+
+ggplotly(atp_freq)
+```
+
+
+```{r wta-cali-freq,fig.cap="The distribution of the number of matches that WTA players meet in the number of times"}
+wta_freq<-wta_stan_bins%>%
+  group_by(bins,total_count)%>%
+  tally()%>%
+mutate(matches=as.character(case_when(total_count==1 ~"Met 1 time",
+                             total_count==2 ~"Met 2 times",
+                             total_count>=3~"Met more then 3 times")))%>%
+  rename(count=n)%>%
+  ggplot(aes(bins,count,fill=matches))+
+   geom_col(position = "dodge")+
+  theme_bw(base_size = 12) +
+  xlab("bins")+
+  ylab("Count")+
+  ggtitle("The distribution of the number of matches for WTA players")+
+  scale_x_continuous(breaks = seq(1, 10,1))
+ggplotly(wta_freq)
+  
+```
+
 ### Random effect in bayesian paired comparison model
 
-For finding the expected probability in each match, using the `predict` function for `bpc` objects which are derived from the `bpc` function with surface random effects. It will generate the 100 iteration by default and the get the mean probability of each columns which will be the final probability for each match. And then the mean probability of each pair player has to be calculated through sum of expected probability in one match divided by sum of the matches they played. The final data will be combined with the predicted probability against with actual number of matches of player 0.
+For finding the expected probability in each match, using the `predict` function for `bpc` objects which are derived from the `bpc` function with surface random effects. It will generate the 100 iteration by default and the get the mean probability of each column, which will be the final probability for each match. And then the mean probability of each pair player has to be calculated through sum of expected probability in one match divided by the sum of the matches they played. The final data will be combined with the predicted probability against with the actual number of matches of player 0.
 
-The figure \@ref(fig:cali-surface-plot) can be visualized directly how well the model fit in the data which has been considered the surface random effect. Based on the scatter plot, the performance of the mixed effect models in the data are relatively poor especially in WTA data. The shape in carpet court looks very abnormal. The volatility between prediction and actual probability in WTA is larger than in ATP and all the predicted values are inconsistent with the reality or even close to actual value in both of plots. 
+Since only a few matches happened in the carpet court which may raise more uncertainty for evaluating this surface type in the model, it can give more explanation by combining carpet and grass court together. So, the figure \@ref(fig:cali-surface-plot) can be visualized directly how well the model fit in the data which has been considered the surface random effect. Based on the scatter plot, the performance of the mixed effect models in the data is relatively poor especially in WTA data. The volatility between prediction and actual probability in WTA is larger than in ATP and all the predicted values are inconsistent with the reality or even close to the actual value in both plots. 
 
-Further explanation need to be explored from the table \@ref(fig:atp-sf-cali) and \@ref(fig:wta-sf-cali) which display the mean of expected probability with different types of surface against the actual probability in each bin in ATP data and WTA data. In the table \@ref(fig:atp-sf-cali), the mean of expected probability increase gradually in all surface but the actual value seems to be concentrated at 0.4 to 0.5 in the third to eighth bin. One of the interesting things is the difference between expected probability and actuality are smallest in the fifth bin in three surfaces. Before the fifth bin, the mixed effect model underestimated the probabilities of player 0 win, but after that, the probabilities of player 0 win are overestimated.
+Further explanation needs to be explored from the table \@ref(fig:atp-sf-cali) and \@ref(fig:wta-sf-cali) which display the mean of expected probability with different types of surface against the actual probability in each bin in ATP data and WTA data. In the table \@ref(fig:atp-sf-cali), the mean of expected probability increase gradually in all surfaces, but the actual value seems to be concentrated in 0.4 to 0.5 in the third to eighth bin. One of the interesting things is the difference between expected probability and actuality are smallest in the fifth bin in three surfaces. Before the fifth bin, the mixed effect model underestimated the probabilities of player 0 wins, but after that, the probabilities of player 0 wins are overestimated.
 
-On the other hand, in the table \@ref(fig:wta-sf-cali),only a few matches happened in the carpet court which may raise more uncertainty for evaluating this surface type in the model. It is also one of the reasons that the probabilities from model fitting with the carpet court are irregular. Moreover,the differences between expected probability and real value in WTA are completely different from ATP table as the probabilities of player 0 wins in all surfaces are overestimated from the mixed effect model before the fifth bin and are underestimated after the fifth bin. It is worth noting that the expected probability of player 0 wins in the third bin is the most underestimated, with an average probability of about 64%, while the average predicted value is only 26%. That is the peak in the grass court that shown in the scatter plot.
+On the other hand, in the table \@ref(fig:wta-sf-cali),the differences between expected probability and real value in WTA are completely different from the ATP table as the probabilities of player 0 wins in all surfaces are overestimated from the mixed effect model before the fifth bin and are underestimated after the fifth bin. It is worth noting that the expected probability of player 0 wins in the third bin is the most underestimated, with an average probability of about 65%, while the average predicted value is only 26%. That is the peak in the grass court that is shown in the right side of scatter plot \@ref(fig:cali-surface-plot).
 
-Obviously, the performances of the mixed effect model in both data sets are not good and the accuracy of model fitting is very low therefore the mixed effect model about considering the random effect in different types of surface is not the appropriate method to predict the tennis matches based on the calibration results.
+Obviously, the performances of the mixed effect model in both data sets are not good and the accuracy of model fitting is very low, therefore the mixed effect model about considering the surface random effect is not the appropriate method to predict the tennis matches based on the calibration results and it may take more debugging to improve the model fitting.
 
 ```{r surface-count}
 atp_top_100%>%
@@ -1313,6 +1356,10 @@ wta_sf_bins%>%
   summarise(mean_pred=sum(y_pred)/n())->wta_sf_freq
 
 wta_sf_bins%>%
+  mutate(Surface=as.character(case_when(Surface=="Hard"~"Hard",
+                                        Surface=="Clay"~"Clay",
+                                        Surface=="Grass"~"Grass",
+                                        Surface=="Carpet"~"Grass")))%>%
   group_by(bins,Surface)%>%
   summarise(mean_act=sum(p0_count)/sum(n))%>%
   left_join(wta_sf_freq)%>%
@@ -1326,6 +1373,7 @@ wta_sf_cali%>%
   datatable(options = list(pageLength = 10),filter = 'top',class = "table-hover table-striped cell-border stripe",caption ='Bradley Terry model with random effect in WTA data')%>%
   formatRound(columns=c('wta_mean_act', 'wta_mean_pred','diff'), digits=4)
 ```
+
 
 ```{r cali-surface-plot,fig.cap="Calibration curve for surface random effect in bayesian paired comparison model" }
 
@@ -1352,25 +1400,27 @@ ggarrange(p5,p6)
 
 # Conclusion
 
-This project seeks to develop and compare the different approaches for predicting the tennis match outcomes. The main method to construct the model structure is the Bradley-Terry model which is one of the most effective way to apply the paired comparison model[@mchale2011bradley]. Based on this, the head-to-head effect would be considered as the explanatory factor in the model so that the Bayesian paired comparison model was introduced by capturing these matchup effects. In addition, not only considering the head-to-head effect, but also exploring the ability of each player in different types of surface. The mixed effect model with surface random effects was implemented in this project for achieving the goal. After modeling the data, the calibration would be evaluated the model fitting and model performance in three models.
+This project seeks to develop and compare the different approaches for predicting the tennis match outcomes. The main method to construct the model structure is the Bradley-Terry model which is one of the most effective ways to apply the paired comparison model [@mchale2011bradley]. Based on this, the head-to-head effect would be considered as the explanatory factor in the model so that the Bayesian paired comparison model was introduced by capturing these matchup effects. In addition, not only considering the head-to-head effect, but also exploring the ability of each player in different types of surface. The mixed effect model with surface random effects was implemented in this project for achieving the goal. After modeling the data, the calibration would be evaluated the model fitting and model performance in three models.
 
-For the standard Bradley-Terry model, the model fitting was good and it trained the data to evaluate the ability of each player. The model performance in ATP and WTA data was well and the predicted probabilities were closer to actual value. However, the standard Bradley Terry model only implemented based on the match level information such as the number of matches with player 0 wins against with player 0 loses, which was not enough to construct the prediction model for tennis matches[@jackson1997heavy]. The result of player-opponent match sometimes is not only about the different capability between two players, it also about the playing style or abilities in different surface courts.
+For the standard Bradley-Terry model, the model fitting was good and it trained the data to evaluate the ability of each player. The model performance in the ATP and WTA data was well and the predicted probabilities were closer to the actual value. However, the standard Bradley-Terry model only implemented based on the match level information such as the number of matches with player 0 wins against with player 0 loses, which was not enough to construct the prediction model for tennis matches[@jackson1997heavy]. The result of the player - opponent match sometimes is not only about the different capability between two players, it also about the playing style or abilities in different surface courts.
 
-The findings of the head-to-head model can be explained some abnormal situation like Wawrinka over Cilic, who lost all the matches in 7 times and their matchup effect was in the second place compared with other. Also,fitting the models with a Bayesian approach results in performance which is marginally better than the standard Bradley Terry model even though the volatility in WTA was larger. Additionally,for the ATP data,this model gives a slight improvement in performance compared to a standard point level Bradley-Terry model, which was closer to actual probability after considering with the head-to-head effect in the matches.
 
-Finally,the mixed effect model was performed in both data sets, which considered the different surface courts in the match records that evaluated the ability of each player based on the surface courts. The performance of this model was relatively poor in both data sets especially in WTA data. Also,the model fitting of these two data was very low and neither of them has achieved the expected effect. However,this model showed that the expected ability of each player in different surface courts was reasonable compared with the reality.
+The findings of the head-to-head model can be explained some abnormal situation like Wawrinka over Cilic, who lost all the matches in 7 times and their matchup effect was in the second place compared with other. Also,fitting the models with a Bayesian approach results in performance, which is marginally better than the standard Bradley-Terry model even though the volatility in the WTA was larger. Additionally, for the ATP data, this model gives a slight improvement in performance compared to a standard point level Bradley-Terry model, which was closer to the actual probability after considering the head-to-head effect in the matches.
+
+
+Finally, the mixed effect model was performed in both data sets, which considered the different surface courts in the match records that evaluated the ability of each player based on the surface courts. The performance of this model was relatively poor in both data sets especially of WTA data. Also, the model fitting of these two data was very low and neither of them has achieved the expected effect. This may need more further explore debugging, such as adjusting the prior parameter setting. However,this model showed that the expected ability of each player in different surface courts was reasonable compared with the reality.
 
 ## Further work
 
 ### Expanding the Data Set
 
-In this project, the full data set with ATP and WTA historical match records should be theoretically used to construct the model and evaluate the model performance. However, because of large amount of the full data, the system run slowly to finish the modeling process especially in head-to-head model, it even took more than 2 days to run without any results. Therefore, by filtering the top 100 players to develop the model rather than the full data, which may cause the problems like incomplete information as there was only a small amount of higher ranker players data available. One of the improvements from this project is to use the complete data but it may need to work out how to improve the system efficiency during the modeling.
+In this project, the full data set with ATP and WTA historical match records should be theoretically used to construct the model and evaluate the model performance. However, because of the large amount of the full data, the system runs slowly to finish the modeling process, especially in the head-to-head model, it even took more than 2 days to run without any results. Therefore, by filtering the top 100 players to develop the model rather than the full data, which may cause the problems like incomplete information as there was only a small amount of higher ranked player (Top 100 players) data available. One of the improvements from this project is to use the complete data, but it may need to work out how to improve the system efficiency during the modeling.
 
 
 
 ### Combing the Surface Factor and Head-to-Head Models
 
-In the mixed effect model, it has been demonstrated that the variation of player skills between different surface courts could be explained although the accuracy of model prediction was very low. Future work could implement the surface random effect factors into the head-to-head effect model, which would provide more possibility and information for exploration of head-to-head effect.
+In the mixed effect model, it has been demonstrated that the variation of player skills between different surface courts could be explained despite the accuracy of model prediction was very low. Future work could implement the surface random effect factors into the head-to-head effect model, which would provide more possibility and information for exploration of the head-to-head effect.
 
 ### Additional Factors
 
@@ -1380,7 +1430,7 @@ The other improvement of this project is to take player ranking and Elo score as
 # Acknowlegments
 
 The R packages are used in this report: 
-tidyverse[@tidyverse]; dplyr[@dplyr]; ggplot2[@ggplot2]; here[@here]; kableExtra[@kableExtra]; ggwordcloud[@ggwordcloud]; scales[@scales]; formattable[@formattable]; bpcs[@bpcs]; BradleyTerry2[@BradleyTerry2]; rvest[@rvest]; rstan[@rstan]; bayesplot[@bayesplot]; ggpubr[@ggpur]; DT[@DT].
+tidyverse[@tidyverse]; dplyr[@dplyr]; ggplot2[@ggplot2]; here[@here]; kableExtra[@kableExtra]; ggwordcloud[@ggwordcloud]; scales[@scales]; formattable[@formattable]; bpcs[@bpcs]; BradleyTerry2[@BradleyTerry2]; rvest[@rvest]; rstan[@rstan]; bayesplot[@bayesplot]; ggpubr[@ggpur]; DT[@DT];plotly[@plotly]
 
 
 
