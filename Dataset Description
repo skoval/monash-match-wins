@@ -1,0 +1,13 @@
+
+Note: This text file is used to describe the datasets in the data folder. Additionally, because the running time of Stan model and mixed effect model in the project is more than 5 hours or even longer, it is necessary to store the estimated coefficients or predicted values in the data folder for convenience.
+
+
+1. `ATP_Tennis.html` and WTA_Tennis.html`: is the data about top 100 players is download from the `atptour.com` and `wtatennis.com` 
+
+2. `atp_stan` and `wta_stan`: is the estimated coefficient including the prediction value and head-to-head effects after running the Stan model via `sampling` function. Also, because of the size of Stan model in both data sets are large which has more than 1GB, it is difficult to push them into github. The alternative way to use it by reading the `atp_stan` and `wta_stan`, it can provide the useful information which has been applied in the project.
+
+3. `atp_lookup.csv` and `wta_lookup.csv`: is the player index output from the summary of mixed effect model fitting via `bpc` function. 
+
+4. `atp_hpi.csv` and `wta_hpi.csv`: is the estimated coefficient output from the summary of mixed effect model fitting via `bpc` function. In addition, it combines with lookup table which can provide the estimated ability of each player in different surface courts.
+
+5. `atp_surface_pred.csv` and `wta_surface_pred.csv`: is the predicted probability from the mixed effect model. 
